@@ -35,16 +35,29 @@ class BloodTypeBadge extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Color.fromARGB(255, 255, 0, 0), // Vibrant purple color
+          gradient: RadialGradient(
+            colors: [
+              Color(0xFFFF2D55), // Bright red
+              Color(0xFFD10000), // Deep red
+            ],
+            radius: 0.8,
+            focal: Alignment(0.1, 0.1),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.red.withOpacity(0.4),
+              blurRadius: 12,
+              spreadRadius: 2,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.3),
               blurRadius: 8,
-              spreadRadius: 1,
-              offset: const Offset(0, 2),
+              spreadRadius: -1,
+              offset: const Offset(-2, -2),
             ),
           ],
-          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
+          border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.5),
         ),
         child: Center(
           child: Column(
@@ -97,8 +110,15 @@ class BloodTypeBadge extends StatelessWidget {
                 width: size * 0.45,
                 height: 1.5,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 1,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
               ),
               Text(
@@ -108,6 +128,14 @@ class BloodTypeBadge extends StatelessWidget {
                   fontSize: size * 0.18,
                   letterSpacing: 0.5,
                   height: 1.2,
+                  fontWeight: FontWeight.w500,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      offset: const Offset(0.5, 0.5),
+                      blurRadius: 1,
+                    ),
+                  ],
                 ),
               ),
             ],

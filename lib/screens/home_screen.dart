@@ -73,10 +73,17 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.favorite,
-                color: Colors.white,
-                size: iconSize,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.favorite,
+                  color: Colors.white,
+                  size: iconSize * 0.8,
+                ),
               ),
               SizedBox(width: horizontalPadding * 0.4),
               Text(
@@ -86,6 +93,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                   color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.2),
+                      offset: const Offset(0, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -94,36 +108,43 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         actions: [
           // Notifications Icon
-          IconButton(
-            icon: Stack(
-              children: [
-                Icon(Icons.notifications, size: isSmallScreen ? 22 : 24, color: Colors.white),
-                if (appProvider.hasUnreadNotifications)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: BoxConstraints(
-                        minWidth: isSmallScreen ? 10 : 12,
-                        minHeight: isSmallScreen ? 10 : 12,
-                      ),
-                      child: const Text(
-                        '',
-                        style: TextStyle(color: Colors.white, fontSize: 8),
-                        textAlign: TextAlign.center,
+          Container(
+            margin: EdgeInsets.only(right: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Stack(
+                children: [
+                  Icon(Icons.notifications, size: isSmallScreen ? 22 : 24, color: Colors.white),
+                  if (appProvider.hasUnreadNotifications)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: BoxConstraints(
+                          minWidth: isSmallScreen ? 10 : 12,
+                          minHeight: isSmallScreen ? 10 : 12,
+                        ),
+                        child: const Text(
+                          '',
+                          style: TextStyle(color: Colors.white, fontSize: 8),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              onPressed: () {
+                Navigator.pushNamed(context, '/notifications');
+              },
             ),
-            onPressed: () {
-              Navigator.pushNamed(context, '/notifications');
-            },
           ),
           // Profile Picture
           Padding(
@@ -134,33 +155,46 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: Hero(
                 tag: 'profile',
-                child: CircleAvatar(
-                  radius: isSmallScreen ? 14 : 16,
-                  backgroundColor: Colors.white,
-                  backgroundImage:
-                      currentUser.imageUrl.isNotEmpty &&
-                              !appProvider.profileImageLoadError
-                          ? NetworkImage(currentUser.imageUrl, scale: 1.0)
-                          : null,
-                  onBackgroundImageError:
-                      currentUser.imageUrl.isNotEmpty &&
-                              !appProvider.profileImageLoadError
-                          ? (exception, stackTrace) {
-                            debugPrint(
-                              'Failed to load profile image: $exception',
-                            );
-                            appProvider.setProfileImageLoadError(true);
-                          }
-                          : null,
-                  child:
-                      currentUser.imageUrl.isEmpty ||
-                              appProvider.profileImageLoadError
-                          ? Icon(
-                            Icons.person,
-                            color: AppConstants.primaryColor,
-                            size: isSmallScreen ? 14 : 16,
-                          )
-                          : null,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: isSmallScreen ? 16 : 18,
+                    backgroundColor: Colors.white,
+                    backgroundImage:
+                        currentUser.imageUrl.isNotEmpty &&
+                                !appProvider.profileImageLoadError
+                            ? NetworkImage(currentUser.imageUrl, scale: 1.0)
+                            : null,
+                    onBackgroundImageError:
+                        currentUser.imageUrl.isNotEmpty &&
+                                !appProvider.profileImageLoadError
+                            ? (exception, stackTrace) {
+                              debugPrint(
+                                'Failed to load profile image: $exception',
+                              );
+                              appProvider.setProfileImageLoadError(true);
+                            }
+                            : null,
+                    child:
+                        currentUser.imageUrl.isEmpty ||
+                                appProvider.profileImageLoadError
+                            ? Icon(
+                              Icons.person,
+                              color: AppConstants.primaryColor,
+                              size: isSmallScreen ? 14 : 16,
+                            )
+                            : null,
+                  ),
                 ),
               ),
             ),
@@ -184,7 +218,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         colors: [
                           AppConstants.primaryColor,
                           AppConstants.primaryColor.withOpacity(0.85),
+                          AppConstants.primaryColor.withOpacity(0.75),
                         ],
+                        stops: const [0.0, 0.7, 1.0],
                       ),
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(30),
@@ -193,8 +229,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: AppConstants.primaryColor.withOpacity(0.4),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                          spreadRadius: 2,
                         ),
                       ],
                     ),
@@ -213,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       color: Colors.white.withOpacity(0.9),
                                       fontSize: bodyTextFontSize + 2,
                                       fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                   Text(
@@ -221,6 +259,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       color: Colors.white,
                                       fontSize: headerFontSize,
                                       fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.2,
+                                      shadows: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 3,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -238,28 +284,40 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        SizedBox(height: verticalPadding * 0.6),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: Colors.white70,
-                              size: smallIconSize,
-                            ),
-                            SizedBox(width: horizontalPadding * 0.4),
-                            Expanded(
-                              child: Text(
-                                currentUser.daysUntilNextDonation > 0
-                                    ? 'Next donation in ${currentUser.daysUntilNextDonation} days'
-                                    : 'You are eligible to donate today!',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: bodyTextFontSize,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                        SizedBox(height: verticalPadding * 0.8),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            vertical: verticalPadding * 0.4,
+                            horizontal: horizontalPadding * 0.6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                color: Colors.white,
+                                size: smallIconSize,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: horizontalPadding * 0.4),
+                              Expanded(
+                                child: Text(
+                                  currentUser.daysUntilNextDonation > 0
+                                      ? 'Next donation in ${currentUser.daysUntilNextDonation} days'
+                                      : 'You are eligible to donate today!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: bodyTextFontSize,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         SizedBox(height: verticalPadding * 0.8),
                         // Eligibility Status
@@ -276,9 +334,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: (currentUser.isEligibleToDonate
+                                    ? AppConstants.successColor
+                                    : Colors.orange).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                                spreadRadius: 1,
                               ),
                             ],
                           ),
@@ -304,7 +365,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: bodyTextFontSize,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
                                 ),
                               ),
                             ],
@@ -319,37 +381,85 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Services',
-                              style: TextStyle(
-                                fontSize: sectionTitleFontSize,
-                                fontWeight: FontWeight.bold,
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: AppConstants.primaryColor.withOpacity(0.3),
+                                width: 2,
                               ),
                             ),
-                            // Optional: Add a subtle info icon to guide users
-                            IconButton(
-                              icon: Icon(
-                                Icons.info_outline,
-                                color: Colors.grey[400],
-                                size: isSmallScreen ? 16 : 18,
-                              ),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Tap on any card to access the service',
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppConstants.primaryColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    duration: Duration(seconds: 2),
+                                    child: Icon(
+                                      Icons.grid_view_rounded,
+                                      color: AppConstants.primaryColor,
+                                      size: isSmallScreen ? 18 : 20,
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
-                          ],
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Services',
+                                    style: TextStyle(
+                                      fontSize: sectionTitleFontSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppConstants.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // Optional: Add a subtle info icon to guide users
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: Icon(
+                                    Icons.info_outline,
+                                    color: Colors.grey[600],
+                                    size: isSmallScreen ? 16 : 18,
+                                  ),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Row(
+                                          children: [
+                                            Icon(Icons.info, color: Colors.white),
+                                            SizedBox(width: 10),
+                                            Flexible(
+                                              child: Text(
+                                                'Tap on any card to access the service',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        duration: Duration(seconds: 3),
+                                        backgroundColor: AppConstants.primaryColor,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        SizedBox(height: verticalPadding * 0.8),
+                        SizedBox(height: verticalPadding * 1.2),
                         // First row of cards (2 cards)
                         Row(
                           children: [
@@ -787,6 +897,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildCompatibilityBloodTypeChip(String bloodType, {Color? color}) {
+    final Color chipColor = color ?? AppConstants.primaryColor;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            chipColor.withOpacity(0.3),
+            chipColor.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: chipColor.withOpacity(0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: chipColor.withOpacity(0.1),
+            blurRadius: 3,
+            spreadRadius: 0,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Text(
+        bloodType,
+        style: TextStyle(
+          color: chipColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCompatibilitySection(
     BuildContext context, {
     required String title,
@@ -795,70 +941,68 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool isTopSection,
   }) {
     final bool isSmallScreen = MediaQuery.of(context).size.width < 360;
+    final Color sectionColor = isTopSection ? AppConstants.successColor : Colors.orange;
 
-    return Padding(
+    return Container(
       padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            sectionColor.withOpacity(0.08),
+            sectionColor.withOpacity(0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(isTopSection ? 16 : 0),
+          bottom: Radius.circular(!isTopSection ? 16 : 0),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: isTopSection ? AppConstants.successColor : Colors.orange,
-                size: isSmallScreen ? 18 : 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
-                  fontWeight: FontWeight.bold,
-                  color:
-                      isTopSection ? AppConstants.successColor : Colors.orange,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: sectionColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: sectionColor,
+                  size: isSmallScreen ? 18 : 20,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                    color: sectionColor,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10,
+            runSpacing: 10,
             children:
                 types
                     .map(
                       (type) => _buildCompatibilityBloodTypeChip(
                         type,
-                        color:
-                            isTopSection
-                                ? AppConstants.successColor
-                                : Colors.orange,
+                        color: sectionColor,
                       ),
                     )
                     .toList(),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCompatibilityBloodTypeChip(String bloodType, {Color? color}) {
-    final Color chipColor = color ?? AppConstants.primaryColor;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: chipColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: chipColor.withOpacity(0.4)),
-      ),
-      child: Text(
-        bloodType,
-        style: TextStyle(
-          color: chipColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
       ),
     );
   }
