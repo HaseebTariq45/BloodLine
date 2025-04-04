@@ -68,7 +68,7 @@ class RequestCard extends StatelessWidget {
           children: [
             // Enhanced status indicator with subtle gradient
             Container(
-              height: 8,
+              height: 10,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
@@ -82,6 +82,14 @@ class RequestCard extends StatelessWidget {
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: statusColor.withOpacity(0.25),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -98,10 +106,19 @@ class RequestCard extends StatelessWidget {
                       Expanded(
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.volunteer_activism,
-                              size: 16,
-                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: isDarkMode 
+                                  ? Colors.blueGrey.withOpacity(0.2) 
+                                  : Colors.blueGrey.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.volunteer_activism,
+                                size: 15,
+                                color: isDarkMode ? Colors.grey.shade300 : Colors.blueGrey.shade700,
+                              ),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -126,55 +143,111 @@ class RequestCard extends StatelessWidget {
                     const SizedBox(height: 14),
                     // Enhanced notes section
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDarkMode 
-                            ? Theme.of(context).cardColor.withOpacity(0.4) 
-                            : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDarkMode 
-                              ? Colors.grey.shade800 
-                              : Colors.grey.shade200,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isDarkMode
+                              ? [
+                                  Theme.of(context).cardColor.withOpacity(0.6),
+                                  Theme.of(context).cardColor.withOpacity(0.3),
+                                ]
+                              : [
+                                  Colors.grey.shade50,
+                                  Colors.grey.shade100.withOpacity(0.5),
+                                ],
                         ),
+                        borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
                             color: isDarkMode
                                 ? Colors.black.withOpacity(0.1)
-                                : Colors.grey.withOpacity(0.1),
-                            blurRadius: 4,
+                                : Colors.grey.withOpacity(0.15),
+                            blurRadius: 5,
                             offset: const Offset(0, 2),
                           ),
                         ],
+                        border: Border.all(
+                          color: isDarkMode
+                              ? Colors.grey.shade800.withOpacity(0.5)
+                              : Colors.grey.shade300.withOpacity(0.5),
+                          width: 1,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.note_outlined,
-                                size: 15,
-                                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: isDarkMode
+                                        ? [
+                                            Colors.grey.shade800,
+                                            Colors.grey.shade900,
+                                          ]
+                                        : [
+                                            Colors.grey.shade100,
+                                            Colors.grey.shade200,
+                                          ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isDarkMode
+                                          ? Colors.black.withOpacity(0.2)
+                                          : Colors.grey.withOpacity(0.1),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.note_outlined,
+                                  size: 15,
+                                  color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                                ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               Text(
-                                'Notes',
+                                'Additional Notes',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                                  letterSpacing: 0.3,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            request.notes,
-                            style: TextStyle(
-                              fontSize: 14,
-                              height: 1.3,
-                              color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? Colors.grey.shade900.withOpacity(0.3)
+                                  : Colors.white.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? Colors.grey.shade800
+                                    : Colors.grey.shade200,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              request.notes,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.4,
+                                color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                              ),
                             ),
                           ),
                         ],
@@ -208,6 +281,10 @@ class RequestCard extends StatelessWidget {
                                   icon: const Icon(Icons.info_outline, size: 16),
                                   label: Text(
                                     secondaryActionLabel ?? 'View Details',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue,
@@ -215,11 +292,20 @@ class RequestCard extends StatelessWidget {
                                     elevation: 2,
                                     shadowColor: Colors.blue.withOpacity(0.3),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 12,
+                                    ),
+                                  ).copyWith(
+                                    overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                                      (Set<MaterialState> states) {
+                                        if (states.contains(MaterialState.pressed)) {
+                                          return Colors.white.withOpacity(0.1);
+                                        }
+                                        return null;
+                                      },
                                     ),
                                   ),
                                 ),
@@ -231,7 +317,13 @@ class RequestCard extends StatelessWidget {
                                       child: OutlinedButton.icon(
                                         onPressed: onCancel,
                                         icon: const Icon(Icons.close, size: 16),
-                                        label: const Text('Cancel'),
+                                        label: const Text(
+                                          'Cancel',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.red,
                                           side: const BorderSide(
@@ -239,11 +331,20 @@ class RequestCard extends StatelessWidget {
                                             width: 1.5,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(12),
                                           ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 12,
-                                            vertical: 10,
+                                            vertical: 12,
+                                          ),
+                                        ).copyWith(
+                                          overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                                            (Set<MaterialState> states) {
+                                              if (states.contains(MaterialState.pressed)) {
+                                                return Colors.red.withOpacity(0.05);
+                                              }
+                                              return null;
+                                            },
                                           ),
                                         ),
                                       ),
@@ -255,7 +356,13 @@ class RequestCard extends StatelessWidget {
                                       child: ElevatedButton.icon(
                                         onPressed: onAction,
                                         icon: const Icon(Icons.check, size: 16),
-                                        label: Text(actionLabel ?? 'Action'),
+                                        label: Text(
+                                          actionLabel ?? 'Action',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:
                                               AppConstants.primaryColor,
@@ -264,11 +371,20 @@ class RequestCard extends StatelessWidget {
                                           shadowColor: AppConstants.primaryColor
                                               .withOpacity(0.4),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(12),
                                           ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 12,
-                                            vertical: 10,
+                                            vertical: 12,
+                                          ),
+                                        ).copyWith(
+                                          overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                                            (Set<MaterialState> states) {
+                                              if (states.contains(MaterialState.pressed)) {
+                                                return Colors.white.withOpacity(0.1);
+                                              }
+                                              return null;
+                                            },
                                           ),
                                         ),
                                       ),
@@ -288,16 +404,31 @@ class RequestCard extends StatelessWidget {
                                   icon: const Icon(Icons.info_outline, size: 16),
                                   label: Text(
                                     secondaryActionLabel ?? 'View Details',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue,
                                     foregroundColor: Colors.white,
+                                    elevation: 2,
+                                    shadowColor: Colors.blue.withOpacity(0.3),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ).copyWith(
+                                    overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                                      (Set<MaterialState> states) {
+                                        if (states.contains(MaterialState.pressed)) {
+                                          return Colors.white.withOpacity(0.1);
+                                        }
+                                        return null;
+                                      },
                                     ),
                                   ),
                                 ),
@@ -307,7 +438,13 @@ class RequestCard extends StatelessWidget {
                                 OutlinedButton.icon(
                                   onPressed: onCancel,
                                   icon: const Icon(Icons.close, size: 16),
-                                  label: const Text('Cancel'),
+                                  label: const Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.red,
                                     side: const BorderSide(
@@ -315,11 +452,20 @@ class RequestCard extends StatelessWidget {
                                       width: 1,
                                     ),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
-                                      vertical: 8,
+                                      vertical: 12,
+                                    ),
+                                  ).copyWith(
+                                    overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                                      (Set<MaterialState> states) {
+                                        if (states.contains(MaterialState.pressed)) {
+                                          return Colors.red.withOpacity(0.05);
+                                        }
+                                        return null;
+                                      },
                                     ),
                                   ),
                                 ),
@@ -328,7 +474,13 @@ class RequestCard extends StatelessWidget {
                                 ElevatedButton.icon(
                                   onPressed: onAction,
                                   icon: const Icon(Icons.check, size: 16),
-                                  label: Text(actionLabel ?? 'Action'),
+                                  label: Text(
+                                    actionLabel ?? 'Action',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppConstants.primaryColor,
                                     foregroundColor: Colors.white,
@@ -336,11 +488,20 @@ class RequestCard extends StatelessWidget {
                                     shadowColor: AppConstants.primaryColor
                                         .withOpacity(0.5),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 10,
+                                    ),
+                                  ).copyWith(
+                                    overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                                      (Set<MaterialState> states) {
+                                        if (states.contains(MaterialState.pressed)) {
+                                          return Colors.white.withOpacity(0.1);
+                                        }
+                                        return null;
+                                      },
                                     ),
                                   ),
                                 ),
@@ -462,14 +623,39 @@ class RequestCard extends StatelessWidget {
 
   // Organized information section
   Widget _buildInfoSection(BuildContext context) {
+    final isDarkMode = context.isDarkMode;
+    
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: context.isDarkMode ? Theme.of(context).cardColor.withOpacity(0.3) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDarkMode 
+            ? [
+                Theme.of(context).cardColor.withOpacity(0.7),
+                Theme.of(context).cardColor.withOpacity(0.4),
+              ]
+            : [
+                Colors.white,
+                Colors.grey.shade50,
+              ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.05)
+                : Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
         border: Border.all(
-          color: context.isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200, 
-          width: 1
+          color: isDarkMode 
+            ? Colors.grey.shade800.withOpacity(0.5)
+            : Colors.grey.shade200,
+          width: 1,
         ),
       ),
       child: Column(
@@ -480,28 +666,44 @@ class RequestCard extends StatelessWidget {
             value: request.requesterName,
             context: context,
           ),
-          const Divider(height: 16),
+          Divider(
+            height: 16,
+            thickness: 0.5,
+            color: isDarkMode ? Colors.grey.shade700.withOpacity(0.5) : Colors.grey.shade200,
+          ),
           _buildInfoRow(
             icon: Icons.phone,
             title: 'Contact',
             value: request.contactNumber,
             context: context,
           ),
-          const Divider(height: 16),
+          Divider(
+            height: 16,
+            thickness: 0.5,
+            color: isDarkMode ? Colors.grey.shade700.withOpacity(0.5) : Colors.grey.shade200,
+          ),
           _buildInfoRow(
             icon: Icons.location_on,
             title: 'Location',
             value: request.location,
             context: context,
           ),
-          const Divider(height: 16),
+          Divider(
+            height: 16,
+            thickness: 0.5,
+            color: isDarkMode ? Colors.grey.shade700.withOpacity(0.5) : Colors.grey.shade200,
+          ),
           _buildInfoRow(
             icon: Icons.location_city,
             title: 'City',
             value: request.city.isNotEmpty ? request.city : 'Not specified',
             context: context,
           ),
-          const Divider(height: 16),
+          Divider(
+            height: 16,
+            thickness: 0.5,
+            color: isDarkMode ? Colors.grey.shade700.withOpacity(0.5) : Colors.grey.shade200,
+          ),
           _buildInfoRow(
             icon: Icons.calendar_today,
             title: 'Requested',
@@ -522,24 +724,47 @@ class RequestCard extends StatelessWidget {
     bool isLast = false,
     required BuildContext context,
   }) {
+    final isDarkMode = context.isDarkMode;
+    
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: context.isDarkMode ? Colors.grey.shade800 : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(4),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDarkMode
+                    ? [
+                        Colors.grey.shade800,
+                        Colors.grey.shade900,
+                      ]
+                    : [
+                        Colors.grey.shade100,
+                        Colors.grey.shade200,
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.grey.withOpacity(0.1),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Icon(
               icon, 
               size: 16, 
-              color: context.isDarkMode ? Colors.grey[400] : Colors.grey[700]
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[700]
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,15 +773,18 @@ class RequestCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 12, 
-                    color: context.isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                    fontWeight: FontWeight.w500,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    letterSpacing: 0.3,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   value,
                   style: TextStyle(
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: context.textColor,
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                   ),
                 ),
               ],
