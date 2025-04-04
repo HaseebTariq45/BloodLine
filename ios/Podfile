@@ -1,0 +1,81 @@
+# Uncomment this line to define a global platform for your project
+# iOS 14.0 is required for Google Maps Flutter plugin
+platform :ios, '14.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+# Prevent Cocoapods from embedding a second Flutter framework and causing an error with the new build system.
+ENV['COCOAPODS_DISABLE_INPUT_OUTPUT_PATHS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # Fix for Firebase Crashlytics
+  pod 'FirebaseCrashlytics'
+  
+  # Add explicit Google Maps dependency to ensure proper version
+  pod 'GoogleMaps', '~> 8.4.0'
+  
+  # Add any additional pods needed for your project
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    
+    # Disable bitcode as it's deprecated and can cause issues
+    target.build_configurations.each do |config|
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 14.0
+        puts "Warning: #{target.name} has IPHONEOS_DEPLOYMENT_TARGET = #{config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']}, but Google Maps requires 14.0+"
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      end
+      
+      # Exclude arm64 architecture for simulator builds
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      
+      # Disable bitcode as it's deprecated in Xcode 14
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+      
+      # Set deployment target
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      
+      # Remove problematic compiler flags that can cause the '-G' error
+      if config.build_settings['OTHER_CFLAGS']
+        config.build_settings['OTHER_CFLAGS'] = config.build_settings['OTHER_CFLAGS'].reject { |flag| flag.include?('-G') }
+      end
+      
+      # Safe version of warning suppressions that don't use problematic flags
+      config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      
+      # Increase build timeout for CI environments
+      config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
+    end
+  end
+end 

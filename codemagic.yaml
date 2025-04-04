@@ -1,0 +1,172 @@
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    instance_type: mac_mini_m1
+    environment:
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.haseeb.bloodline
+      vars:
+        XCODE_WORKSPACE: "ios/Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+        MIN_IOS_VERSION: "14.0"
+        GOOGLE_MAPS_API_KEY: $GOOGLE_MAPS_API_KEY
+        COCOAPODS_VERSION: "1.12.1" # Specify a specific CocoaPods version
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Update Flutter
+        script: |
+          echo "Updating Flutter to latest stable version"
+          flutter upgrade
+          flutter --version
+      
+      - name: Set specific CocoaPods version
+        script: |
+          echo "Setting CocoaPods version to $COCOAPODS_VERSION"
+          gem uninstall cocoapods --all
+          gem install cocoapods -v $COCOAPODS_VERSION
+          pod --version
+
+      - name: Fix permissions
+        script: |
+          chmod +x fix_ci_permissions.sh
+          ./fix_ci_permissions.sh
+          
+      - name: Fix compiler flags
+        script: |
+          chmod +x fix_g_compiler_flags.sh
+          ./fix_g_compiler_flags.sh
+          
+      - name: Check dependencies
+        script: |
+          chmod +x check_dependencies.sh
+          ./check_dependencies.sh
+          
+      - name: Verify Firebase configuration
+        script: |
+          chmod +x verify_firebase.sh
+          ./verify_firebase.sh
+          
+      - name: Set up Google Maps API key
+        script: |
+          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
+            echo "Setting up Google Maps API key"
+            # Add the key to Info.plist
+            plutil -replace GOOGLE_MAPS_API_KEY -string "$GOOGLE_MAPS_API_KEY" ios/Runner/Info.plist
+          else
+            echo "Warning: GOOGLE_MAPS_API_KEY environment variable not set"
+          fi
+          
+      - name: Set minimum iOS version
+        script: |
+          echo "Setting minimum iOS version to $MIN_IOS_VERSION"
+          sed -i '' "s/platform :ios, '.*'/platform :ios, '$MIN_IOS_VERSION'/g" ios/Podfile
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = $MIN_IOS_VERSION;/g" ios/Runner.xcodeproj/project.pbxproj
+          
+      - name: Fix problematic compiler flags
+        script: |
+          echo "Fixing problematic compiler flags in project.pbxproj"
+          # Remove problematic -G flags from project.pbxproj
+          sed -i '' 's/-G[^\ ]*//g' ios/Runner.xcodeproj/project.pbxproj
+          
+      - name: Add Framework Search Paths
+        script: |
+          echo "Adding Framework Search Paths to Xcode project"
+          # This helps with finding Firebase frameworks
+          /usr/libexec/PlistBuddy -c "Add :buildSettings:FRAMEWORK_SEARCH_PATHS array" /tmp/xcconfig.plist || true
+          /usr/libexec/PlistBuddy -c "Add :buildSettings:FRAMEWORK_SEARCH_PATHS:0 string \$(inherited)" /tmp/xcconfig.plist || true
+          /usr/libexec/PlistBuddy -c "Add :buildSettings:FRAMEWORK_SEARCH_PATHS:1 string \$(PROJECT_DIR)/Pods" /tmp/xcconfig.plist || true
+          
+      - name: Install Flutter dependencies
+        script: flutter pub get
+        
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          echo "Updating CocoaPods repos..."
+          pod repo update
+          
+          echo "Cleaning Pods directory..."
+          rm -rf Pods
+          rm -f Podfile.lock
+          
+          echo "Installing pods with verbose output..."
+          pod install --verbose || {
+            echo "Pod install failed, trying again with repo update..."
+            pod repo update
+            pod install --verbose
+          }
+
+          # Check and fix potential Google Maps issue
+          if [ ! -d "Pods/GoogleMaps" ]; then
+            echo "Warning: GoogleMaps pod not found, trying to fix..."
+            # Try adding GoogleMaps dependency directly
+            echo "pod 'GoogleMaps', '~> 8.4.0'" >> Podfile
+            pod install --verbose
+          fi
+          
+          # Check if pod install was successful
+          if [ ! -d "Pods" ]; then
+            echo "Error: Pods directory not created after pod install."
+            exit 1
+          fi
+          
+          echo "CocoaPods installation complete!"
+          
+      - name: Build iOS
+        script: |
+          echo "Flutter version:"
+          flutter --version
+          
+          echo "Cleaning Flutter build..."
+          flutter clean
+          
+          # Disable concurrent builds to avoid memory issues on CI
+          export FLUTTER_XCODE_ONLY_ACTIVE_ARCH=YES
+          
+          # Add special env vars to help with the build
+          export FLUTTER_BUILD_MODE=release
+          export COMPILER_INDEX_STORE_ENABLE=NO
+          
+          echo "Building Flutter iOS app..."
+          flutter build ios --release --no-codesign || {
+            echo "Build failed, checking for common issues..."
+            
+            # Check for common issues
+            echo "Checking iOS deployment target..."
+            grep -r "IPHONEOS_DEPLOYMENT_TARGET" ios/
+            
+            echo "Checking Podfile..."
+            cat ios/Podfile
+            
+            echo "Checking for missing pods..."
+            ls -la ios/Pods 2>/dev/null || echo "Pods directory not found!"
+            
+            # Check for problematic flags
+            echo "Checking for problematic compiler flags..."
+            grep -r -- "-G" ios/Runner.xcodeproj/project.pbxproj || echo "No -G flags found"
+            
+            # Try with simpler build flags
+            echo "Attempting simpler build for debugging..."
+            flutter build ios --debug --no-codesign
+            
+            # Exit with error if we got here
+            exit 1
+          }
+          
+          echo "iOS build completed successfully!"
+    artifacts:
+      - build/ios/iphoneos/app.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+      - ios/Podfile
+      - ios/Podfile.lock
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true 
