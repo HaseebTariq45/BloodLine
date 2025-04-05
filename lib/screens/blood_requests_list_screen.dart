@@ -917,19 +917,29 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
               );
             }).toList();
 
-        // Filter requests based on tab
+        // First filter out completed/cancelled requests for ALL tabs
+        // This ensures these requests stay in the database but don't appear in the UI
+        final activeRequests = bloodRequests.where((request) {
+          // Filter out any completed, fulfilled, or cancelled requests
+          final status = request.status.toLowerCase();
+          return !status.contains('fulfilled') && 
+                 !status.contains('complete') && 
+                 !status.contains('cancelled') &&
+                 !status.contains('done');
+        }).toList();
+        
+        // Then apply tab-specific filters to the active requests only
         final appProvider = Provider.of<AppProvider>(context, listen: false);
-        final filteredRequests =
-            bloodRequests.where((request) {
-              if (filter == 'My') {
-                return request.requesterId == appProvider.currentUser.id;
-              } else if (filter == 'Urgent') {
-                return request.urgency == 'Urgent';
-              } else if (filter == 'Normal') {
-                return request.urgency == 'Normal';
-              }
-              return true; // 'All' tab
-            }).toList();
+        final filteredRequests = activeRequests.where((request) {
+          if (filter == 'My') {
+            return request.requesterId == appProvider.currentUser.id;
+          } else if (filter == 'Urgent') {
+            return request.urgency == 'Urgent';
+          } else if (filter == 'Normal') {
+            return request.urgency == 'Normal';
+          }
+          return true; // 'All' tab
+        }).toList();
 
         if (filteredRequests.isEmpty) {
           return _buildEmptyState();
