@@ -1063,10 +1063,10 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.hourglass_empty, size: 16),
+                        Icon(Icons.hourglass_top, size: 16),
                         const SizedBox(width: 4),
                         const Text(
-                          'New',
+                          'In Progress',
                           style: TextStyle(fontSize: 13),
                         ),
                       ],
@@ -1076,10 +1076,10 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.hourglass_top, size: 16),
+                        Icon(Icons.pending_actions, size: 16),
                         const SizedBox(width: 4),
                         const Text(
-                          'In Progress',
+                          'Accepted',
                           style: TextStyle(fontSize: 13),
                         ),
                       ],
@@ -1109,8 +1109,8 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
             controller: _tabController,
             physics: const BouncingScrollPhysics(),
             children: [
-              _buildPendingTab(),
-              _buildInProgressTab(),
+              _buildInProgressResponsesTab(),
+              _buildAcceptedRequestsTab(),
               _buildCompletedTab(),
             ],
           ),
@@ -1223,10 +1223,10 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
     );
   }
 
-  Widget _buildPendingTab() {
+  Widget _buildInProgressResponsesTab() {
     final currentUserId = Provider.of<AppProvider>(context).currentUser.id;
     debugPrint(
-      'DonationTrackingScreen - Building pending tab for user ID: $currentUserId',
+      'DonationTrackingScreen - Building in-progress responses tab for user ID: $currentUserId',
     );
 
     return StreamBuilder<QuerySnapshot>(
@@ -1234,13 +1234,13 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
           FirebaseFirestore.instance
               .collection('blood_requests')
               .where('requesterId', isEqualTo: currentUserId)
-              .where('status', isEqualTo: 'Pending')
+              .where('status', isEqualTo: 'In Progress')
               .orderBy('requestDate', descending: true)
               .snapshots(),
       builder: (context, snapshot) {
         // Debug connection state
         debugPrint(
-          'DonationTrackingScreen - Pending requests - Connection state: ${snapshot.connectionState}',
+          'DonationTrackingScreen - In Progress responses - Connection state: ${snapshot.connectionState}',
         );
 
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1249,56 +1249,44 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
 
         if (snapshot.hasError) {
           debugPrint(
-            'DonationTrackingScreen - Pending requests - Error: ${snapshot.error}',
+            'DonationTrackingScreen - In Progress responses - Error: ${snapshot.error}',
           );
           return Center(child: Text('Error: ${snapshot.error}'));
         }
 
         final requests = snapshot.data?.docs ?? [];
 
-        // Apply blood type filter if needed
-        var filteredRequests = requests;
-        if (_selectedBloodType != null) {
-          filteredRequests =
-              requests.where((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                return data['bloodType'] == _selectedBloodType;
-              }).toList();
-        }
-
         // Apply search filter if needed
-        filteredRequests =
+        final filteredRequests =
             _searchQuery.isEmpty
-                ? filteredRequests
-                : filteredRequests.where((doc) {
+                ? requests
+                : requests.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final searchableFields = [
                     data['bloodType']?.toString().toLowerCase() ?? '',
                     data['location']?.toString().toLowerCase() ?? '',
-                    data['requesterName']?.toString().toLowerCase() ?? '',
+                    data['responderName']?.toString().toLowerCase() ?? '',
                   ];
                   return searchableFields.any(
                     (field) => field.contains(_searchQuery.toLowerCase()),
                   );
                 }).toList();
 
-        debugPrint(
-          'DonationTrackingScreen - Pending requests - Loaded ${filteredRequests.length} requests (filtered from ${requests.length} total)',
-        );
-
         if (filteredRequests.isEmpty) {
-          return EmptyStateFactory.noPendingRequests(
-            onAction: () => Navigator.of(context).pushNamed('/request'),
+          return EmptyStateWidget(
+            icon: Icons.hourglass_top,
+            title:
+                _searchQuery.isNotEmpty
+                    ? 'No matching requests'
+                    : 'No responses to your requests',
+            message:
+                _searchQuery.isNotEmpty
+                    ? 'Try changing your search criteria'
+                    : 'You don\'t have any responses to your blood donation requests yet.',
           );
         }
 
-        return _buildCustomRefreshIndicator(
-          onRefresh: () async {
-            // Refresh data
-            setState(() {}); // Trigger rebuild
-            return Future.delayed(const Duration(milliseconds: 1500));
-          },
-          child: ListView.builder(
+        return ListView.builder(
             padding: const EdgeInsets.symmetric(
               horizontal: AppConstants.paddingM,
               vertical: AppConstants.paddingS,
@@ -1309,21 +1297,140 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                   filteredRequests[index].data() as Map<String, dynamic>;
               final request = BloodRequestModel.fromMap(requestData);
 
-              return RequestCard(
-                request: request,
-                showActions: true,
-                onCancel: () {
-                  _cancelRequest(request.id);
-                },
+              // Get responder info from the request data
+              final responderName = requestData['responderName'] ?? 'Unknown';
+              final responderPhone = requestData['responderPhone'] ?? 'N/A';
+              final responderId = requestData['responderId'] ?? '';
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                elevation: 2,
+                shadowColor: context.isDarkMode ? Colors.black12 : Colors.grey.withOpacity(0.07),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: context.isDarkMode
+                          ? [
+                              context.cardColor,
+                              Colors.blue.withOpacity(0.08),
+                            ]
+                          : [
+                              Colors.white,
+                              Colors.blue.shade50.withOpacity(0.3),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    title: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            request.bloodType,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Response Received',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                          icon: Icons.location_on,
+                          title: 'Location',
+                          value: request.location,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                          icon: Icons.person,
+                          title: 'Donor',
+                          value: responderName,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                          icon: Icons.phone,
+                          title: 'Contact',
+                          value: responderPhone,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                          icon: Icons.calendar_today,
+                          title: 'Request Date',
+                          value: request.formattedDate,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _contactRecipient(responderPhone),
+                                icon: const Icon(Icons.phone, size: 16),
+                                label: const Text('Contact'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.blue,
+                                  side: BorderSide(
+                                    color: Colors.blue,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _acceptResponse(request),
+                                icon: const Icon(Icons.check_circle, size: 16),
+                                label: const Text('Accept'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppConstants.successColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               );
             },
-          ),
         );
       },
     );
   }
 
-  Widget _buildInProgressTab() {
+  Widget _buildAcceptedRequestsTab() {
     final currentUserId = Provider.of<AppProvider>(context).currentUser.id;
 
     return StreamBuilder<QuerySnapshot>(
@@ -1331,7 +1438,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
           FirebaseFirestore.instance
               .collection('blood_requests')
               .where('requesterId', isEqualTo: currentUserId)
-              .where('status', whereIn: ['Accepted', 'Scheduled'])
+              .where('status', isEqualTo: 'Accepted')
               .orderBy('requestDate', descending: true)
               .snapshots(),
       builder: (context, snapshot) {
@@ -1341,7 +1448,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
 
         if (snapshot.hasError) {
           debugPrint(
-            'DonationTrackingScreen - In-progress tab - Error: ${snapshot.error}',
+            'DonationTrackingScreen - Accepted tab - Error: ${snapshot.error}',
           );
           return Center(child: Text('Error: ${snapshot.error}'));
         }
@@ -1370,11 +1477,11 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
             title:
                 _searchQuery.isNotEmpty
                     ? 'No matching requests'
-                    : 'No in-progress requests',
+                    : 'No accepted requests',
             message:
                 _searchQuery.isNotEmpty
                     ? 'Try changing your search criteria'
-                    : 'You don\'t have any in-progress blood donation requests.',
+                    : 'You don\'t have any accepted blood donation requests.',
           );
         }
 
@@ -2175,5 +2282,79 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
     return Center(
       child: Text('To Accept Donations'),
     );
+  }
+
+  // Accept a response from a donor
+  Future<void> _acceptResponse(BloodRequestModel request) async {
+    try {
+      if (request.responderId == null || request.responderId!.isEmpty) {
+        throw Exception('No responder ID found for this request');
+      }
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      
+      // Get the Firestore instance
+      final firestore = FirebaseFirestore.instance;
+      
+      // Update request status to Accepted
+      await firestore.collection('blood_requests').doc(request.id).update({
+        'status': 'Accepted',
+        'acceptedAt': DateTime.now().toIso8601String(),
+      });
+
+      // Create a donation entry for tracking
+      final donationId = 'donation_${request.id}';
+      await firestore.collection('donations').doc(donationId).set({
+        'id': donationId,
+        'donorId': request.responderId,
+        'donorName': request.responderName,
+        'recipientId': request.requesterId,
+        'recipientName': request.requesterName,
+        'recipientPhone': request.contactNumber,
+        'bloodType': request.bloodType,
+        'date': DateTime.now().toIso8601String(),
+        'status': 'Accepted',
+        'requestId': request.id,
+      });
+
+      // Send notification to donor
+      await appProvider.acceptBloodRequestResponse(request.id, request.responderId!);
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You have accepted ${request.responderName}\'s response'),
+            backgroundColor: AppConstants.successColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to accept response: $e'),
+            backgroundColor: AppConstants.errorColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      debugPrint('Error accepting response: $e');
+    }
   }
 }

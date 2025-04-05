@@ -294,7 +294,7 @@ class _BloodRequestNotificationDialogState
         'userId': widget.requesterId,
         'title': 'Blood Request Accepted',
         'body': '${currentUser.name} has accepted your blood donation request!',
-        'type': 'blood_request_response',
+        'type': 'blood_request_accepted',
         'read': false,
         'createdAt': DateTime.now().toIso8601String(),
         'metadata': {

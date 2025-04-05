@@ -18,9 +18,9 @@ exports.sendNotificationOnCreate = functions.firestore
       
       console.log(`Processing notification ${notificationId} of type ${notificationData.type}`);
       
-      // Only process notifications of type 'blood_request_response'
-      if (notificationData.type !== 'blood_request_response') {
-        console.log('Skipping notification - not a blood request response');
+      // Only process notifications of type 'blood_request_response' or 'blood_request_accepted'
+      if (notificationData.type !== 'blood_request_response' && notificationData.type !== 'blood_request_accepted') {
+        console.log(`Skipping notification - not a blood request response or acceptance (type: ${notificationData.type})`);
         return null;
       }
       
@@ -68,7 +68,7 @@ exports.sendNotificationOnCreate = functions.firestore
               android_channel_id: 'blood_donation_high_importance',
             },
             data: {
-              type: 'blood_request_response',
+              type: notificationData.type,
               requestId: notificationData.requestId || '',
               responderName: notificationData.responderName || '',
               responderPhone: notificationData.responderPhone || '',
@@ -154,7 +154,7 @@ exports.sendNotificationOnCreate = functions.firestore
               body: notificationData.body || `${notificationData.responderName} has responded to your blood request`,
             },
             data: {
-              type: 'blood_request_response',
+              type: notificationData.type,
               requestId: notificationData.requestId || '',
               responderName: notificationData.responderName || '',
               responderPhone: notificationData.responderPhone || '',

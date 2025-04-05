@@ -332,6 +332,61 @@ class FirebaseNotificationService {
           );
         }
       }
+    } else if (notificationType == 'blood_request_accepted') {
+      // Get basic notification fields
+      final String? notificationId = data['id'];
+      final String? userId = data['userId'];
+      
+      // Get the metadata field which might contain the responder information
+      final metadata = data['metadata'] as Map<String, dynamic>? ?? {};
+
+      // Try to get data from both direct fields and metadata
+      final String? requestId = metadata['requestId'] ?? data['requestId'];
+      final String? responderName = metadata['responderName'] ?? data['responderName'];
+      final String? responderPhone = metadata['responderPhone'] ?? data['responderPhone'];
+      final String? bloodType = metadata['bloodType'] ?? data['bloodType'];
+      final String? responderId = metadata['responderId'] ?? data['responderId'];
+
+      debugPrint(
+        'Blood request accepted - notification type: $notificationType',
+      );
+      debugPrint('Blood request accepted - userId: $userId');
+      debugPrint('Blood request accepted - data keys: ${data.keys.toList()}');
+      debugPrint('Blood request accepted - data: $data');
+      debugPrint('Blood request accepted - metadata: $metadata');
+      
+      // Show a success message and navigate to the donation tracking screen
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            responderName != null 
+                ? '$responderName has accepted your blood request' 
+                : 'Your blood request has been accepted',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'VIEW',
+            onPressed: () {
+              if (requestId != null) {
+                Navigator.of(context, rootNavigator: true).pushNamed(
+                  '/donation_tracking',
+                  arguments: {'initialTab': 0, 'requestId': requestId},
+                );
+              }
+            },
+            textColor: Colors.white,
+          ),
+        ),
+      );
+      
+      // Navigate to donation tracking screen to show the accepted request
+      if (requestId != null) {
+        Navigator.of(context, rootNavigator: true).pushNamed(
+          '/donation_tracking',
+          arguments: {'initialTab': 0, 'requestId': requestId},
+        );
+      }
     } else if (notificationType == 'donation_request') {
       // Get basic notification fields
       final String? notificationId = data['id'];

@@ -814,8 +814,45 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                       ],
                     ),
                     
+                    // Status badge
+                    if (request.status == 'In Progress') ... [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.blue.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person,
+                              size: 12,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Responded by ${request.responderName ?? "a donor"}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    
                     // Action buttons in a separate row
-                    if (request.status == 'Pending' || request.status == 'New') ... [
+                    if (request.status == 'Pending' || request.status == 'New' || request.status == 'In Progress') ... [
                       const SizedBox(height: 10),
                       _buildActionButtons(request, canRespond, isCurrentUserRequest),
                     ] else ... [
@@ -1307,9 +1344,92 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
 
   // Build action buttons layout with responsive design
   Widget _buildActionButtons(BloodRequestModel request, bool canRespond, bool isCurrentUserRequest) {
-    // Choose layout based on condition
-    if (canRespond) {
-      // Use Row for larger screens, Column for smaller screens
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final currentUserId = appProvider.currentUser.id;
+    
+    // Case 1: User is viewing their own request that has received a response
+    if (isCurrentUserRequest && request.status == 'In Progress' && request.responderId != null) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          // If we have enough width, use a row layout
+          if (constraints.maxWidth > 240) {
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _launchCall(request.responderPhone ?? ''),
+                  icon: const Icon(Icons.phone_outlined, size: 14),
+                  label: const Text('Call Donor', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    minimumSize: const Size(0, 28),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => _acceptBloodRequest(request),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppConstants.successColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    minimumSize: const Size(0, 28),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Accept Donor', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            );
+          } else {
+            // For smaller screens, use a wrapped layout
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _launchCall(request.responderPhone ?? ''),
+                  icon: const Icon(Icons.phone_outlined, size: 14),
+                  label: const Text('Call Donor', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    minimumSize: const Size(0, 28),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => _acceptBloodRequest(request),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppConstants.successColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    minimumSize: const Size(0, 28),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Accept Donor', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            );
+          }
+        },
+      );
+    }
+    // Case 2: User can respond to someone else's request
+    else if (canRespond) {
       return LayoutBuilder(
         builder: (context, constraints) {
           // If we have enough width, use a row layout
@@ -1330,20 +1450,6 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => _acceptBloodRequest(request),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppConstants.successColor,
-                    side: BorderSide(color: AppConstants.successColor),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    minimumSize: const Size(0, 28),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Accept', style: TextStyle(fontSize: 12)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -1382,19 +1488,6 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                ),
-                OutlinedButton(
-                  onPressed: () => _acceptBloodRequest(request),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppConstants.successColor,
-                    side: BorderSide(color: AppConstants.successColor),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    minimumSize: const Size(0, 28),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Accept', style: TextStyle(fontSize: 12)),
                 ),
                 ElevatedButton(
                   onPressed: () => _showResponseDialog(request),
