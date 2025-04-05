@@ -26,6 +26,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
   final TextEditingController _addressController = TextEditingController();
 
   String _selectedContactType = 'personal';
+  String _selectedRelationship = '';
   final _formKey = GlobalKey<FormState>();
 
   StreamSubscription? _contactsSubscription;
@@ -106,6 +107,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
     _relationshipController.clear();
     _addressController.clear();
     _selectedContactType = 'personal';
+    _selectedRelationship = '';
 
     showModalBottomSheet(
       context: context,
@@ -176,9 +178,46 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               // Name field
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Name *',
-                  prefixIcon: Icon(Icons.person),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.person, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade300,
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade500,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -192,9 +231,46 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               // Phone field
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Phone Number *',
-                  prefixIcon: Icon(Icons.phone),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.phone, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade300,
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade500,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
@@ -207,21 +283,192 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               SizedBox(height: verticalPadding * 0.75),
 
               // Relationship field
-              TextFormField(
-                controller: _relationshipController,
-                decoration: const InputDecoration(
+              DropdownButtonFormField<String>(
+                value: _selectedRelationship.isEmpty ? null : _selectedRelationship,
+                decoration: InputDecoration(
                   labelText: 'Relationship',
-                  prefixIcon: Icon(Icons.people),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.people, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
+                hint: Text(
+                  'Select Relationship',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.arrow_drop_down_circle,
+                  color: AppConstants.primaryColor,
+                ),
+                iconSize: 24,
+                elevation: 8,
+                isExpanded: true,
+                dropdownColor: context.backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+                items: [
+                  DropdownMenuItem(
+                    value: 'Spouse',
+                    child: Row(
+                      children: [
+                        Icon(Icons.favorite, size: 18, color: Colors.pink),
+                        const SizedBox(width: 12),
+                        const Text('Spouse'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Parent',
+                    child: Row(
+                      children: [
+                        Icon(Icons.family_restroom, size: 18, color: Colors.blue),
+                        const SizedBox(width: 12),
+                        const Text('Parent'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Child',
+                    child: Row(
+                      children: [
+                        Icon(Icons.child_care, size: 18, color: Colors.green),
+                        const SizedBox(width: 12),
+                        const Text('Child'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Sibling',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline, size: 18, color: Colors.purple),
+                        const SizedBox(width: 12),
+                        const Text('Sibling'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Relative',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline, size: 18, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        const Text('Relative'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Friend',
+                    child: Row(
+                      children: [
+                        Icon(Icons.emoji_people, size: 18, color: Colors.amber),
+                        const SizedBox(width: 12),
+                        const Text('Friend'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Colleague',
+                    child: Row(
+                      children: [
+                        Icon(Icons.work_outline, size: 18, color: Colors.brown),
+                        const SizedBox(width: 12),
+                        const Text('Colleague'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Doctor',
+                    child: Row(
+                      children: [
+                        Icon(Icons.medical_services, size: 18, color: Colors.red),
+                        const SizedBox(width: 12),
+                        const Text('Doctor'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Caregiver',
+                    child: Row(
+                      children: [
+                        Icon(Icons.healing, size: 18, color: AppConstants.primaryColor),
+                        const SizedBox(width: 12),
+                        const Text('Caregiver'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Other',
+                    child: Row(
+                      children: [
+                        Icon(Icons.more_horiz, size: 18, color: Colors.grey),
+                        const SizedBox(width: 12),
+                        const Text('Other'),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedRelationship = value;
+                      _relationshipController.text = value;
+                    });
+                  }
+                },
               ),
               SizedBox(height: verticalPadding * 0.75),
 
               // Address field
               TextFormField(
                 controller: _addressController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Address',
-                  prefixIcon: Icon(Icons.location_on),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.location_on, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 maxLines: 2,
               ),
@@ -230,20 +477,82 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               // Contact type dropdown
               DropdownButtonFormField<String>(
                 value: _selectedContactType,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Contact Type',
-                  prefixIcon: Icon(Icons.category),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.category, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'personal', child: Text('Personal')),
-                  DropdownMenuItem(value: 'hospital', child: Text('Hospital')),
+                icon: Icon(
+                  Icons.arrow_drop_down_circle,
+                  color: AppConstants.primaryColor,
+                ),
+                iconSize: 24,
+                elevation: 8,
+                isExpanded: true,
+                dropdownColor: context.backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+                items: [
+                  DropdownMenuItem(
+                    value: 'personal',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person, size: 18, color: Colors.blue),
+                        const SizedBox(width: 12),
+                        const Text('Personal'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'hospital',
+                    child: Row(
+                      children: [
+                        Icon(Icons.local_hospital, size: 18, color: Colors.red),
+                        const SizedBox(width: 12),
+                        const Text('Hospital'),
+                      ],
+                    ),
+                  ),
                   DropdownMenuItem(
                     value: 'blood_bank',
-                    child: Text('Blood Bank'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.bloodtype, size: 18, color: AppConstants.primaryColor),
+                        const SizedBox(width: 12),
+                        const Text('Blood Bank'),
+                      ],
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'ambulance',
-                    child: Text('Ambulance'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.emergency, size: 18, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        const Text('Ambulance'),
+                      ],
+                    ),
                   ),
                 ],
                 onChanged: (value) {
@@ -260,16 +569,27 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               SizedBox(
                 width: double.infinity,
                 height: screenHeight * 0.06,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save, size: 20),
+                  label: const Text(
+                    'Save Contact',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppConstants.primaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 2,
+                    shadowColor: AppConstants.primaryColor.withOpacity(0.5),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onPressed: _saveContact,
-                  child: const Text('Save Contact'),
                 ),
               ),
               SizedBox(height: verticalPadding),
@@ -702,46 +1022,128 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                                 color: context.secondaryTextColor,
                                 size: isSmallScreen ? 20 : 24,
                               ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              color: context.backgroundColor,
+                              elevation: 8,
+                              offset: const Offset(0, 10),
                               itemBuilder: (context) => [
                                 PopupMenuItem(
                                   value: 'edit',
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.edit, size: 18, color: context.textColor),
-                                      const SizedBox(width: 8),
-                                      Text('Edit'),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Icon(
+                                          Icons.edit,
+                                          size: 18,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Edit',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: context.textColor,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                                 PopupMenuItem(
                                   value: 'delete',
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.delete, size: 18, color: Colors.red),
-                                      const SizedBox(width: 8),
-                                      Text('Delete'),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Icon(
+                                          Icons.delete,
+                                          size: 18,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Delete',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: context.textColor,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                                 if (!contact.isPinned)
                                   PopupMenuItem(
                                     value: 'pin',
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.push_pin, size: 18, color: context.textColor),
-                                        const SizedBox(width: 8),
-                                        Text('Pin to Top'),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: AppConstants.primaryColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Icon(
+                                            Icons.push_pin,
+                                            size: 18,
+                                            color: AppConstants.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Pin to Top',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500,
+                                            color: context.textColor,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   )
                                 else
                                   PopupMenuItem(
                                     value: 'unpin',
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.push_pin_outlined, size: 18, color: context.textColor),
-                                        const SizedBox(width: 8),
-                                        Text('Unpin'),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Icon(
+                                            Icons.push_pin_outlined,
+                                            size: 18,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Unpin',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500,
+                                            color: context.textColor,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1204,12 +1606,29 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
 
   // Show dialog to edit an existing contact
   void _showEditContactDialog(EmergencyContactModel contact) {
-    // Pre-fill form fields with existing contact data
+    // Set form fields to current values
     _nameController.text = contact.name;
     _phoneController.text = contact.phoneNumber;
     _relationshipController.text = contact.relationship ?? '';
     _addressController.text = contact.address ?? '';
     _selectedContactType = contact.contactType;
+    
+    // Only set _selectedRelationship if it matches one of our predefined options, otherwise set to empty
+    String relationshipValue = contact.relationship ?? '';
+    final List<String> validRelationships = [
+      'Spouse', 'Parent', 'Child', 'Sibling', 'Relative', 
+      'Friend', 'Colleague', 'Doctor', 'Caregiver', 'Other'
+    ];
+    
+    _selectedRelationship = validRelationships.contains(relationshipValue) 
+        ? relationshipValue 
+        : '';
+        
+    // If the relationship doesn't match our dropdown options but has a value,
+    // we'll keep it in the controller for saving but not select it in the dropdown
+    if (!validRelationships.contains(relationshipValue) && relationshipValue.isNotEmpty) {
+      _relationshipController.text = relationshipValue;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1280,9 +1699,46 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               // Name field
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Name *',
-                  prefixIcon: Icon(Icons.person),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.person, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade300,
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade500,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -1296,9 +1752,46 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               // Phone field
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Phone Number *',
-                  prefixIcon: Icon(Icons.phone),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.phone, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade300,
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red.shade500,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
@@ -1311,21 +1804,192 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               SizedBox(height: verticalPadding * 0.75),
 
               // Relationship field
-              TextFormField(
-                controller: _relationshipController,
-                decoration: const InputDecoration(
+              DropdownButtonFormField<String>(
+                value: _selectedRelationship.isEmpty ? null : _selectedRelationship,
+                decoration: InputDecoration(
                   labelText: 'Relationship',
-                  prefixIcon: Icon(Icons.people),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.people, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
+                hint: Text(
+                  'Select Relationship',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.arrow_drop_down_circle,
+                  color: AppConstants.primaryColor,
+                ),
+                iconSize: 24,
+                elevation: 8,
+                isExpanded: true,
+                dropdownColor: context.backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+                items: [
+                  DropdownMenuItem(
+                    value: 'Spouse',
+                    child: Row(
+                      children: [
+                        Icon(Icons.favorite, size: 18, color: Colors.pink),
+                        const SizedBox(width: 12),
+                        const Text('Spouse'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Parent',
+                    child: Row(
+                      children: [
+                        Icon(Icons.family_restroom, size: 18, color: Colors.blue),
+                        const SizedBox(width: 12),
+                        const Text('Parent'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Child',
+                    child: Row(
+                      children: [
+                        Icon(Icons.child_care, size: 18, color: Colors.green),
+                        const SizedBox(width: 12),
+                        const Text('Child'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Sibling',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline, size: 18, color: Colors.purple),
+                        const SizedBox(width: 12),
+                        const Text('Sibling'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Relative',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline, size: 18, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        const Text('Relative'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Friend',
+                    child: Row(
+                      children: [
+                        Icon(Icons.emoji_people, size: 18, color: Colors.amber),
+                        const SizedBox(width: 12),
+                        const Text('Friend'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Colleague',
+                    child: Row(
+                      children: [
+                        Icon(Icons.work_outline, size: 18, color: Colors.brown),
+                        const SizedBox(width: 12),
+                        const Text('Colleague'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Doctor',
+                    child: Row(
+                      children: [
+                        Icon(Icons.medical_services, size: 18, color: Colors.red),
+                        const SizedBox(width: 12),
+                        const Text('Doctor'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Caregiver',
+                    child: Row(
+                      children: [
+                        Icon(Icons.healing, size: 18, color: AppConstants.primaryColor),
+                        const SizedBox(width: 12),
+                        const Text('Caregiver'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Other',
+                    child: Row(
+                      children: [
+                        Icon(Icons.more_horiz, size: 18, color: Colors.grey),
+                        const SizedBox(width: 12),
+                        const Text('Other'),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedRelationship = value;
+                      _relationshipController.text = value;
+                    });
+                  }
+                },
               ),
               SizedBox(height: verticalPadding * 0.75),
 
               // Address field
               TextFormField(
                 controller: _addressController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Address',
-                  prefixIcon: Icon(Icons.location_on),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.location_on, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 maxLines: 2,
               ),
@@ -1334,20 +1998,82 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
               // Contact type dropdown
               DropdownButtonFormField<String>(
                 value: _selectedContactType,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Contact Type',
-                  prefixIcon: Icon(Icons.category),
+                  labelStyle: TextStyle(
+                    color: AppConstants.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(Icons.category, color: AppConstants.primaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppConstants.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'personal', child: Text('Personal')),
-                  DropdownMenuItem(value: 'hospital', child: Text('Hospital')),
+                icon: Icon(
+                  Icons.arrow_drop_down_circle,
+                  color: AppConstants.primaryColor,
+                ),
+                iconSize: 24,
+                elevation: 8,
+                isExpanded: true,
+                dropdownColor: context.backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+                items: [
+                  DropdownMenuItem(
+                    value: 'personal',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person, size: 18, color: Colors.blue),
+                        const SizedBox(width: 12),
+                        const Text('Personal'),
+                      ],
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'hospital',
+                    child: Row(
+                      children: [
+                        Icon(Icons.local_hospital, size: 18, color: Colors.red),
+                        const SizedBox(width: 12),
+                        const Text('Hospital'),
+                      ],
+                    ),
+                  ),
                   DropdownMenuItem(
                     value: 'blood_bank',
-                    child: Text('Blood Bank'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.bloodtype, size: 18, color: AppConstants.primaryColor),
+                        const SizedBox(width: 12),
+                        const Text('Blood Bank'),
+                      ],
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'ambulance',
-                    child: Text('Ambulance'),
+                    child: Row(
+                      children: [
+                        Icon(Icons.emergency, size: 18, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        const Text('Ambulance'),
+                      ],
+                    ),
                   ),
                 ],
                 onChanged: (value) {
@@ -1413,10 +2139,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           id: contact.id,
           name: _nameController.text.trim(),
           phoneNumber: _phoneController.text.trim(),
-          contactType: _selectedContactType,
           relationship: _relationshipController.text.trim(),
           address: _addressController.text.trim(),
-          isPinned: contact.isPinned,
+          contactType: _selectedContactType,
           createdAt: contact.createdAt,
           userId: contact.userId,
         );
