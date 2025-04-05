@@ -64,7 +64,7 @@ class NotificationCard extends StatelessWidget {
     DateTime parsedDate;
     try {
       parsedDate = DateTime.parse(notification.createdAt);
-    } catch (e) {
+      } catch (e) {
       debugPrint('$errorParsingDate: $e');
       parsedDate = DateTime.now();
     }
@@ -113,7 +113,7 @@ class NotificationCard extends StatelessWidget {
         child: Card(
           margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           elevation: 2,
-          shape: RoundedRectangleBorder(
+              shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
           child: Padding(
@@ -143,8 +143,8 @@ class NotificationCard extends StatelessWidget {
                         children: [
                           Text(
                             _getNotificationTitle(notification.type),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
@@ -203,44 +203,44 @@ class NotificationCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
               cancelText,
               style: TextStyle(
                 color: Theme.of(context).brightness == Brightness.dark 
                     ? Colors.grey[300] 
                     : Colors.grey[700],
               ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: Text(
               deleteText,
-              style: TextStyle(
+                    style: TextStyle(
                 color: Colors.red,
-              ),
-            ),
-          ),
-        ],
+                    ),
+                  ),
+                ),
+              ],
       ),
     ) ?? false;
   }
 
   // Handle blood request response notification
   void _handleBloodRequestResponse(BuildContext context) {
-    onMarkAsRead();
+              onMarkAsRead();
 
-    // Get responder information with proper null checks
-    final Map<String, dynamic> metadata = notification.metadata ?? {};
+              // Get responder information with proper null checks
+              final Map<String, dynamic> metadata = notification.metadata ?? {};
     debugPrint('Blood request response metadata: $metadata');
 
-    final String? bloodType = metadata['bloodType'];
+              final String? bloodType = metadata['bloodType'];
     final String? hospitalName = metadata['hospitalName'];
     final String? requesterName = metadata['requesterName'];
     final String? requesterPhone = metadata['requesterPhone'];
-    final String? requestId = metadata['requestId'];
+              final String? requestId = metadata['requestId'];
 
     // Primary color for this notification type
     final Color primaryColor = Colors.red.shade600;
@@ -248,7 +248,7 @@ class NotificationCard extends StatelessWidget {
 
     // Show a dialog with information about the request
     _showEnhancedDialog(
-      context: context,
+                  context: context,
       title: bloodRequestResponseTitle,
       iconData: Icons.bloodtype,
       gradientColors: gradientColors,
@@ -284,10 +284,10 @@ class NotificationCard extends StatelessWidget {
       ],
       infoMessage: 'Please respond to the request as soon as possible if you can help.',
       onViewDetails: () {
-        Navigator.pop(context);
+                          Navigator.pop(context);
         _safeNavigate(
-          context, 
-          '/donation_tracking',
+                            context,
+                            '/donation_tracking',
           {'initialTab': 0, 'requestId': requestId},
         );
       },
@@ -296,16 +296,16 @@ class NotificationCard extends StatelessWidget {
 
   // Handle blood request accepted notification
   void _handleBloodRequestAccepted(BuildContext context) {
-    onMarkAsRead();
+              onMarkAsRead();
 
-    // Get responder information with proper null checks
-    final Map<String, dynamic> metadata = notification.metadata ?? {};
-    debugPrint('Blood request accepted metadata: $metadata');
+              // Get responder information with proper null checks
+              final Map<String, dynamic> metadata = notification.metadata ?? {};
+              debugPrint('Blood request accepted metadata: $metadata');
 
-    final String? responderId = metadata['responderId'];
-    final String? responderName = metadata['responderName'];
-    final String? responderPhone = metadata['responderPhone'];
-    final String? requestId = metadata['requestId'];
+              final String? responderId = metadata['responderId'];
+              final String? responderName = metadata['responderName'];
+              final String? responderPhone = metadata['responderPhone'];
+              final String? requestId = metadata['requestId'];
 
     // Primary color for this notification type
     final Color primaryColor = Colors.green.shade600;
@@ -313,7 +313,7 @@ class NotificationCard extends StatelessWidget {
 
     // Show dialog with information about the accepted request
     _showEnhancedDialog(
-      context: context,
+                context: context,
       title: requestAcceptedTitle,
       iconData: Icons.check_circle,
       gradientColors: gradientColors,
@@ -326,7 +326,7 @@ class NotificationCard extends StatelessWidget {
             value: responderName,
             icon: Icons.person,
           ),
-        if (responderPhone != null) 
+                      if (responderPhone != null) 
           InfoRowData(
             label: contactLabel,
             value: responderPhone,
@@ -337,10 +337,10 @@ class NotificationCard extends StatelessWidget {
       ],
       infoMessage: trackingInfoText,
       onViewDetails: () {
-        Navigator.pop(context);
+                        Navigator.pop(context);
         _safeNavigate(
-          context, 
-          '/donation_tracking',
+                          context, 
+                          '/donation_tracking',
           {'initialTab': 2},
         );
       },
@@ -349,29 +349,29 @@ class NotificationCard extends StatelessWidget {
 
   // Handle donation request notification
   void _handleDonationRequest(BuildContext context) {
-    onMarkAsRead();
+              onMarkAsRead();
 
-    // Get requester information with proper null checks
-    final Map<String, dynamic> metadata = notification.metadata ?? {};
-    debugPrint('Donation request metadata: $metadata');
+              // Get requester information with proper null checks
+              final Map<String, dynamic> metadata = notification.metadata ?? {};
+              debugPrint('Donation request metadata: $metadata');
 
-    final String? requesterId = metadata['requesterId'];
-    final String? requesterName = metadata['requesterName'];
-    final String? requesterPhone = metadata['requesterPhone'];
-    final String? requesterEmail = metadata['requesterEmail'];
-    final String? requesterBloodType = metadata['requesterBloodType'];
-    final String? requesterAddress = metadata['requesterAddress'];
-    final String? requestId = metadata['requestId'];
+              final String? requesterId = metadata['requesterId'];
+              final String? requesterName = metadata['requesterName'];
+              final String? requesterPhone = metadata['requesterPhone'];
+              final String? requesterEmail = metadata['requesterEmail'];
+              final String? requesterBloodType = metadata['requesterBloodType'];
+              final String? requesterAddress = metadata['requesterAddress'];
+              final String? requestId = metadata['requestId'];
 
-    // Debug log
-    debugPrint('Notification card, requester info:');
-    debugPrint('  requesterId: $requesterId');
-    debugPrint('  requesterName: $requesterName');
-    debugPrint('  requesterPhone: $requesterPhone');
-    debugPrint('  requesterEmail: $requesterEmail');
-    debugPrint('  requesterBloodType: $requesterBloodType');
-    debugPrint('  requesterAddress: $requesterAddress');
-    debugPrint('  requestId: $requestId');
+              // Debug log
+              debugPrint('Notification card, requester info:');
+              debugPrint('  requesterId: $requesterId');
+              debugPrint('  requesterName: $requesterName');
+              debugPrint('  requesterPhone: $requesterPhone');
+              debugPrint('  requesterEmail: $requesterEmail');
+              debugPrint('  requesterBloodType: $requesterBloodType');
+              debugPrint('  requesterAddress: $requesterAddress');
+              debugPrint('  requestId: $requestId');
 
     // Primary color for this notification type
     final Color primaryColor = Colors.blue.shade600;
@@ -417,7 +417,7 @@ class NotificationCard extends StatelessWidget {
       onViewDetails: () {
         Navigator.pop(context);
         _safeNavigate(
-          context, 
+                  context,
           '/donation_tracking',
           {'initialTab': 2, 'requestId': requestId},
         );
@@ -448,8 +448,8 @@ class NotificationCard extends StatelessWidget {
   Future<void> _safeCopy(BuildContext context, String text, Color color) async {
     try {
       await Clipboard.setData(ClipboardData(text: text));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
           content: Text(copySuccessMessage),
           behavior: SnackBarBehavior.floating,
           backgroundColor: color,
@@ -463,9 +463,9 @@ class NotificationCard extends StatelessWidget {
           content: Text(copyErrorMessage),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red,
-        ),
-      );
-    }
+                          ),
+                        );
+                      }
   }
 
   // Reusable enhanced dialog builder
@@ -483,8 +483,8 @@ class NotificationCard extends StatelessWidget {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
     
-    showDialog(
-      context: context,
+                      showDialog(
+                        context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -558,12 +558,12 @@ class NotificationCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
                         content,
-                        style: TextStyle(
-                          fontSize: 16,
+                            style: TextStyle(
+                              fontSize: 16,
                           height: 1.4,
                           color: isDarkMode ? Colors.grey[300] : Colors.black87,
                         ),
@@ -611,7 +611,7 @@ class NotificationCard extends StatelessWidget {
                       
                       SizedBox(height: 20),
                       Row(
-                        children: [
+                      children: [
                           Icon(
                             Icons.info_outline,
                             size: 18,
@@ -619,15 +619,15 @@ class NotificationCard extends StatelessWidget {
                           ),
                           SizedBox(width: 8),
                           Flexible(
-                            child: Text(
+                                      child: Text(
                               infoMessage,
-                              style: TextStyle(
+                                        style: TextStyle(
                                 color: isDarkMode ? Colors.grey[400] : Colors.grey.shade600,
                                 fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                       ),
                     ],
                   ),
@@ -637,8 +637,8 @@ class NotificationCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Row(
-                    children: [
-                      Expanded(
+                        children: [
+                          Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
@@ -772,18 +772,18 @@ class NotificationCard extends StatelessWidget {
         SizedBox(width: 12),
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
               Text(
                 label,
-                style: TextStyle(
+              style: TextStyle(
                   fontSize: 12,
                   color: isDarkMode ? Colors.grey[400] : Colors.grey.shade700,
                 ),
               ),
               Text(
-                value,
-                style: TextStyle(
+              value,
+              style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
                   color: isDarkMode ? Colors.grey[300] : Colors.grey[900],
@@ -807,7 +807,7 @@ class NotificationCard extends StatelessWidget {
               minHeight: 36,
             ),
           ),
-      ],
+        ],
     );
   }
-} 
+}

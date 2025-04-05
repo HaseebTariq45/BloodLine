@@ -496,8 +496,12 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      elevation: 2,
-      shadowColor: context.isDarkMode ? Colors.black45 : Colors.black12,
+      elevation: 4,
+      shadowColor: context.isDarkMode 
+          ? Colors.black54 
+          : request.urgency == 'Urgent'
+              ? AppConstants.errorColor.withOpacity(0.25)
+              : Colors.black26,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
@@ -517,14 +521,14 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                 ? [
                     Theme.of(context).cardColor,
                     request.urgency == 'Urgent'
-                        ? Colors.black.withOpacity(0.2)
+                        ? Colors.red.withOpacity(0.15)
                         : Colors.black.withOpacity(0.08),
                   ]
                 : [
                     Colors.white,
                     request.urgency == 'Urgent'
-                        ? Colors.grey.shade100
-                        : Colors.grey.shade50,
+                        ? Colors.red.shade50
+                        : Colors.blue.shade50.withOpacity(0.3),
                   ],
           ),
         ),
@@ -553,11 +557,22 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: AppConstants.primaryColor.withOpacity(0.2),
-                                blurRadius: 8,
-                                spreadRadius: 1,
+                                color: AppConstants.primaryColor.withOpacity(0.3),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 2),
                               ),
                             ],
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppConstants.primaryColor,
+                                request.urgency == 'Urgent'
+                                    ? AppConstants.errorColor
+                                    : AppConstants.primaryColor.withBlue(AppConstants.primaryColor.blue + 20),
+                              ],
+                            ),
                           ),
                           child: Center(
                             child: Text(
@@ -729,6 +744,14 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                           decoration: BoxDecoration(
                             color: _getStatusColor(request.status).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _getStatusColor(request.status).withOpacity(0.1),
+                                blurRadius: 4,
+                                spreadRadius: 0,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -762,6 +785,14 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.green.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  spreadRadius: 0,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

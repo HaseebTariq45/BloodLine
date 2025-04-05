@@ -60,16 +60,16 @@ class RequestCard extends StatelessWidget {
           ],
           border: Border.all(
             color: statusColor.withOpacity(0.3),
-            width: 1,
-          ),
+          width: 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // Enhanced status indicator with subtle gradient
-            Container(
+          Container(
               height: 10,
-              decoration: BoxDecoration(
+            decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
@@ -78,9 +78,9 @@ class RequestCard extends StatelessWidget {
                     statusColor,
                   ],
                 ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -90,20 +90,20 @@ class RequestCard extends StatelessWidget {
                     spreadRadius: 1,
                   ),
                 ],
-              ),
             ),
-            Padding(
+          ),
+          Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
                       // Enhanced blood type badge
                       _buildBloodTypeBadge(request.bloodType, context),
                       const SizedBox(width: 12),
                       // Request title with icon
-                      Expanded(
+                    Expanded(
                         child: Row(
                           children: [
                             Container(
@@ -122,29 +122,29 @@ class RequestCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Blood Request',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: context.textColor,
-                              ),
+                        'Blood Request',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: context.textColor,
+                        ),
                             ),
                           ],
-                        ),
                       ),
+                    ),
                       // Enhanced status badge
                       _buildStatusBadge(request.status, context),
-                    ],
-                  ),
+                  ],
+                ),
                   const SizedBox(height: 18),
-                  // Information rows with improved spacing and organization
-                  _buildInfoSection(context),
-                  if (request.notes.isNotEmpty) ...[
+                // Information rows with improved spacing and organization
+                _buildInfoSection(context),
+                if (request.notes.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     // Enhanced notes section
-                    Container(
+                  Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -174,12 +174,12 @@ class RequestCard extends StatelessWidget {
                               : Colors.grey.shade300.withOpacity(0.5),
                           width: 1,
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -248,54 +248,54 @@ class RequestCard extends StatelessWidget {
                                 height: 1.4,
                                 color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                               ),
-                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                  // Action buttons with improved styling
-                  if (showActions &&
-                      (onAction != null ||
-                          onCancel != null ||
-                          onSecondaryAction != null)) ...[
-                    const SizedBox(height: 16),
+                  ),
+                ],
+                // Action buttons with improved styling
+                if (showActions &&
+                    (onAction != null ||
+                        onCancel != null ||
+                        onSecondaryAction != null)) ...[
+                  const SizedBox(height: 16),
                     const Divider(
                       height: 1,
                       thickness: 1,
                       color: Color(0x0F000000),
                     ),
                     const SizedBox(height: 16),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final availableWidth = constraints.maxWidth;
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final availableWidth = constraints.maxWidth;
 
-                        // For smaller screens, buttons need more vertical layout
-                        if (availableWidth < 400 && onSecondaryAction != null) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (onSecondaryAction != null)
-                                ElevatedButton.icon(
-                                  onPressed: onSecondaryAction,
-                                  icon: const Icon(Icons.info_outline, size: 16),
-                                  label: Text(
-                                    secondaryActionLabel ?? 'View Details',
+                      // For smaller screens, buttons need more vertical layout
+                      if (availableWidth < 400 && onSecondaryAction != null) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (onSecondaryAction != null)
+                              ElevatedButton.icon(
+                                onPressed: onSecondaryAction,
+                                icon: const Icon(Icons.info_outline, size: 16),
+                                label: Text(
+                                  secondaryActionLabel ?? 'View Details',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.3,
                                     ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
                                     elevation: 2,
                                     shadowColor: Colors.blue.withOpacity(0.3),
-                                    shape: RoundedRectangleBorder(
+                                  shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
                                       vertical: 12,
                                     ),
                                   ).copyWith(
@@ -310,13 +310,13 @@ class RequestCard extends StatelessWidget {
                                   ),
                                 ),
                               const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  if (onCancel != null)
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: onCancel,
-                                        icon: const Icon(Icons.close, size: 16),
+                            Row(
+                              children: [
+                                if (onCancel != null)
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: onCancel,
+                                      icon: const Icon(Icons.close, size: 16),
                                         label: const Text(
                                           'Cancel',
                                           style: TextStyle(
@@ -324,17 +324,17 @@ class RequestCard extends StatelessWidget {
                                             letterSpacing: 0.3,
                                           ),
                                         ),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                          side: const BorderSide(
-                                            color: Colors.red,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                        side: const BorderSide(
+                                          color: Colors.red,
                                             width: 1.5,
-                                          ),
-                                          shape: RoundedRectangleBorder(
+                                        ),
+                                        shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
                                             vertical: 12,
                                           ),
                                         ).copyWith(
@@ -346,16 +346,16 @@ class RequestCard extends StatelessWidget {
                                               return null;
                                             },
                                           ),
-                                        ),
                                       ),
                                     ),
-                                  if (onCancel != null && onAction != null)
+                                  ),
+                                if (onCancel != null && onAction != null)
                                     const SizedBox(width: 10),
-                                  if (onAction != null)
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: onAction,
-                                        icon: const Icon(Icons.check, size: 16),
+                                if (onAction != null)
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: onAction,
+                                      icon: const Icon(Icons.check, size: 16),
                                         label: Text(
                                           actionLabel ?? 'Action',
                                           style: const TextStyle(
@@ -363,14 +363,14 @@ class RequestCard extends StatelessWidget {
                                             letterSpacing: 0.3,
                                           ),
                                         ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              AppConstants.primaryColor,
-                                          foregroundColor: Colors.white,
-                                          elevation: 2,
-                                          shadowColor: AppConstants.primaryColor
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppConstants.primaryColor,
+                                        foregroundColor: Colors.white,
+                                        elevation: 2,
+                                        shadowColor: AppConstants.primaryColor
                                               .withOpacity(0.4),
-                                          shape: RoundedRectangleBorder(
+                                        shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           padding: const EdgeInsets.symmetric(
@@ -385,39 +385,39 @@ class RequestCard extends StatelessWidget {
                                               }
                                               return null;
                                             },
-                                          ),
                                         ),
                                       ),
                                     ),
-                                ],
-                              ),
-                            ],
-                          );
-                        } else {
-                          // Default horizontal layout for buttons
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (onSecondaryAction != null) ...[
-                                ElevatedButton.icon(
-                                  onPressed: onSecondaryAction,
-                                  icon: const Icon(Icons.info_outline, size: 16),
-                                  label: Text(
-                                    secondaryActionLabel ?? 'View Details',
+                                  ),
+                              ],
+                            ),
+                          ],
+                        );
+                      } else {
+                        // Default horizontal layout for buttons
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (onSecondaryAction != null) ...[
+                              ElevatedButton.icon(
+                                onPressed: onSecondaryAction,
+                                icon: const Icon(Icons.info_outline, size: 16),
+                                label: Text(
+                                  secondaryActionLabel ?? 'View Details',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.3,
                                     ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
                                     elevation: 2,
                                     shadowColor: Colors.blue.withOpacity(0.3),
-                                    shape: RoundedRectangleBorder(
+                                  shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 12,
                                     ),
@@ -430,14 +430,14 @@ class RequestCard extends StatelessWidget {
                                         return null;
                                       },
                                     ),
-                                  ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (onCancel != null)
-                                OutlinedButton.icon(
-                                  onPressed: onCancel,
-                                  icon: const Icon(Icons.close, size: 16),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            if (onCancel != null)
+                              OutlinedButton.icon(
+                                onPressed: onCancel,
+                                icon: const Icon(Icons.close, size: 16),
                                   label: const Text(
                                     'Cancel',
                                     style: TextStyle(
@@ -445,17 +445,17 @@ class RequestCard extends StatelessWidget {
                                       letterSpacing: 0.3,
                                     ),
                                   ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.red,
-                                    side: const BorderSide(
-                                      color: Colors.red,
-                                      width: 1,
-                                    ),
-                                    shape: RoundedRectangleBorder(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                  side: const BorderSide(
+                                    color: Colors.red,
+                                    width: 1,
+                                  ),
+                                  shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
                                       vertical: 12,
                                     ),
                                   ).copyWith(
@@ -467,13 +467,13 @@ class RequestCard extends StatelessWidget {
                                         return null;
                                       },
                                     ),
-                                  ),
                                 ),
-                              if (onAction != null) ...[
-                                const SizedBox(width: 12),
-                                ElevatedButton.icon(
-                                  onPressed: onAction,
-                                  icon: const Icon(Icons.check, size: 16),
+                              ),
+                            if (onAction != null) ...[
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                onPressed: onAction,
+                                icon: const Icon(Icons.check, size: 16),
                                   label: Text(
                                     actionLabel ?? 'Action',
                                     style: const TextStyle(
@@ -481,18 +481,18 @@ class RequestCard extends StatelessWidget {
                                       letterSpacing: 0.3,
                                     ),
                                   ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppConstants.primaryColor,
-                                    foregroundColor: Colors.white,
-                                    elevation: 2,
-                                    shadowColor: AppConstants.primaryColor
-                                        .withOpacity(0.5),
-                                    shape: RoundedRectangleBorder(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppConstants.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  elevation: 2,
+                                  shadowColor: AppConstants.primaryColor
+                                      .withOpacity(0.5),
+                                  shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 10,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
                                     ),
                                   ).copyWith(
                                     overlayColor: MaterialStateProperty.resolveWith<Color?>(
@@ -506,16 +506,16 @@ class RequestCard extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                            ],
-                          );
-                        }
-                      },
-                    ),
-                  ],
+                          ],
+                        );
+                      }
+                    },
+                  ),
                 ],
-              ),
+              ],
             ),
-          ],
+          ),
+        ],
         ),
       ),
     );
