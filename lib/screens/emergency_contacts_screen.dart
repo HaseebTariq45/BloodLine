@@ -1384,11 +1384,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
         if (isLandscape) {
           // Landscape mode has more horizontal space
           crossAxisCount = availableWidth > 600 ? 4 : 3;
-          childAspectRatio = 1.4;
+          childAspectRatio = 1.5;
         } else {
           // Portrait mode
           crossAxisCount = availableWidth > 600 ? 3 : 2;
-          childAspectRatio = isSmallScreen ? 1.0 : 1.1;
+          childAspectRatio = isSmallScreen ? 0.85 : 0.95;
         }
 
         // Calculate responsive padding and spacing
@@ -1513,11 +1513,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.all(constraints.maxWidth * 0.02),
+            padding: EdgeInsets.all(constraints.maxWidth * 0.015),
             child: LayoutBuilder(
               builder: (context, cardConstraints) {
                 // Calculate responsive sizes based on available card space
-                final double iconSize = cardConstraints.maxWidth * 0.3;
+                final double iconSize = cardConstraints.maxWidth * 0.25;
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1525,7 +1525,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                   children: [
                     // Icon container with flexible sizing
                     Container(
-                      height: cardConstraints.maxHeight * 0.4,
+                      height: cardConstraints.maxHeight * 0.35,
                       width: iconSize,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1551,16 +1551,16 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                       ),
                     ),
 
-                    // Flexible spacing
-                    SizedBox(height: cardConstraints.maxHeight * 0.03),
+                    Spacer(flex: 1),
 
                     // Title with fitted text
                     Flexible(
+                      flex: 2,
                       child: Text(
                         title,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: isSmallScreen ? 12 : 14,
+                          fontSize: isSmallScreen ? 11 : 13,
                           color: context.textColor,
                         ),
                         textAlign: TextAlign.center,
@@ -1569,35 +1569,35 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                       ),
                     ),
 
+                    // Small spacer
+                    Spacer(flex: 1),
+
                     // Phone number with call icon
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 2),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.call,
-                              size: isSmallScreen ? 10 : 12,
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.call,
+                            size: isSmallScreen ? 9 : 11,
+                            color: color,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            phoneNumber,
+                            style: TextStyle(
                               color: color,
+                              fontSize: isSmallScreen ? 10 : 12,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(width: 2),
-                            Text(
-                              phoneNumber,
-                              style: TextStyle(
-                                color: color,
-                                fontSize: isSmallScreen ? 11 : 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
