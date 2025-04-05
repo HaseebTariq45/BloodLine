@@ -276,67 +276,70 @@ class _DonorSearchScreenState extends State<DonorSearchScreen>
                                     color: context.textColor,
                                     fontSize: 12,
                                   ),
-                                  selectedItemBuilder: (BuildContext context) {
-                                    return [null, ..._bloodTypes].map<Widget>((
-                                      String? item,
-                                    ) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          item ?? 'All Types',
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList();
-                                  },
                                   items: [
                                     DropdownMenuItem<String>(
                                       value: null,
-                                      child: Text(
-                                        'All Types',
-                                        style: TextStyle(
-                                          color: context.textColor,
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    ..._bloodTypes.map((type) {
-                                      return DropdownMenuItem<String>(
-                                        value: type,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 16.0),
                                         child: Row(
                                           children: [
-                                            Container(
-                                              width: 18,
-                                              height: 18,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: AppConstants.primaryColor,
-                                              ),
-                                              child: Center(
-                                                child: Text(
-                                                  type,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 8,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
+                                            Icon(
+                                              Icons.bloodtype_outlined,
+                                              size: 14,
+                                              color: Colors.grey,
                                             ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              type,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                                fontSize: 12,
-                                                color: context.textColor,
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                'All Types',
+                                                style: TextStyle(
+                                                  color: context.textColor,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
+                                        ),
+                                      ),
+                                    ),
+                                    ..._bloodTypes.map((String type) {
+                                      return DropdownMenuItem<String>(
+                                        value: type,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(left: 16.0),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 18,
+                                                height: 18,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: AppConstants.primaryColor,
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    type,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 8,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                type,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 12,
+                                                  color: context.textColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       );
                                     }),
@@ -414,64 +417,25 @@ class _DonorSearchScreenState extends State<DonorSearchScreen>
                                     fontWeight: FontWeight.w500,
                                   ),
                                   menuMaxHeight: MediaQuery.of(context).size.height * 0.4,
-                                  selectedItemBuilder: (BuildContext context) {
-                                    return [null, ..._locations].map<Widget>((
-                                      item,
-                                    ) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          item == null ? 'Any City' : item.toString(),
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList();
-                                  },
                                   items: [
                                     DropdownMenuItem<String>(
                                       value: null,
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.location_on,
-                                            size: 14,
-                                            color: Colors.grey,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              'Any City',
-                                              style: TextStyle(
-                                                color: context.textColor,
-                                                fontWeight: FontWeight.w500,
-                                                fontSize: 12,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    ...(CityManager().cities).map((location) {
-                                      return DropdownMenuItem<String>(
-                                        value: location,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 16.0),
                                         child: Row(
                                           children: [
                                             Icon(
                                               Icons.location_on,
                                               size: 14,
-                                              color: AppConstants.primaryColor,
+                                              color: Colors.grey,
                                             ),
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Text(
-                                                location,
+                                                'Any City',
                                                 style: TextStyle(
                                                   color: context.textColor,
-                                                  fontWeight: FontWeight.normal,
+                                                  fontWeight: FontWeight.w500,
                                                   fontSize: 12,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
@@ -479,14 +443,46 @@ class _DonorSearchScreenState extends State<DonorSearchScreen>
                                             ),
                                           ],
                                         ),
+                                      ),
+                                    ),
+                                    ...(CityManager().cities).map((location) {
+                                      return DropdownMenuItem<String>(
+                                        value: location,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(left: 16.0),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.location_on,
+                                                size: 14,
+                                                color: AppConstants.primaryColor,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  location,
+                                                  style: TextStyle(
+                                                    color: context.textColor,
+                                                    fontWeight: FontWeight.normal,
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       );
                                     }),
                                   ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _selectedLocation = value;
-                                    });
-                                    _updateFilteredDonors();
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _selectedLocation = value;
+                                        debugPrint('DonorSearch: Selected location: $_selectedLocation');
+                                      });
+                                      _updateFilteredDonors();
+                                    }
                                   },
                                   dropdownColor: context.cardColor,
                                   borderRadius: BorderRadius.circular(12),
@@ -916,7 +912,9 @@ class _DonorSearchScreenState extends State<DonorSearchScreen>
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
-                                    'Last donation: ${donor.lastDonationDate.day}/${donor.lastDonationDate.month}/${donor.lastDonationDate.year}',
+                                    donor.lastDonationDate != null
+                                        ? 'Last donation: ${donor.lastDonationDate?.day}/${donor.lastDonationDate?.month}/${donor.lastDonationDate?.year}'
+                                        : 'No donation history',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: context.secondaryTextColor,
@@ -1145,7 +1143,9 @@ class _DonorSearchScreenState extends State<DonorSearchScreen>
                             icon: Icons.calendar_today,
                             title: 'Last Donation',
                             value:
-                                '${donor.lastDonationDate.day}/${donor.lastDonationDate.month}/${donor.lastDonationDate.year}',
+                                donor.lastDonationDate != null
+                                    ? '${donor.lastDonationDate?.day}/${donor.lastDonationDate?.month}/${donor.lastDonationDate?.year}'
+                                    : 'No donation history',
                           ),
                           _buildDetailRow(
                             icon:

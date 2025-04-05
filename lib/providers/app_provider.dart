@@ -623,18 +623,43 @@ class AppProvider extends ChangeNotifier {
   // This ensures the isAvailableToDonate flag is auto-updated when a new donation is added
   Future<void> syncDonationAvailability() async {
     if (_currentUser != null) {
-      // Only update if manual availability is true but user isn't eligible based on date
-      // Or if manual availability is false but user should be eligible based on date
-      if ((_currentUser!.isAvailableToDonate && !_currentUser!.isAvailableBasedOnDonationDate) ||
-          (!_currentUser!.isAvailableToDonate && _currentUser!.isAvailableBasedOnDonationDate)) {
+      // If the user has never donated, they're eligible to donate
+      if (_currentUser!.neverDonatedBefore) {
+        if (!_currentUser!.isAvailableToDonate) {
+          debugPrint('User has never donated, marking as available to donate');
+          
+          // Update the user profile to be available
+          final updatedUser = _currentUser!.copyWith(
+            isAvailableToDonate: true,
+          );
+          
+          await updateUserProfile(updatedUser);
+          debugPrint('Updated availability for user who has never donated: true');
+        } else {
+          debugPrint('User has never donated and is already marked as available');
+        }
+        return;
+      }
+      
+      // Otherwise, check based on last donation date
+      final nextDonationDate = _currentUser!.lastDonationDate?.add(const Duration(days: 90)) ?? DateTime.now();
+      final daysRemaining = nextDonationDate.difference(DateTime.now()).inDays;
+      final canDonate = daysRemaining <= 0;
+      
+      // If user has donated recently (daysRemaining > 0), set availability to false
+      // If 90 days have passed and they're eligible again (daysRemaining <= 0), set to true
+      if (_currentUser!.isAvailableToDonate != canDonate) {
+        debugPrint('Updating donation eligibility status. Days until eligible: $daysRemaining, Can donate: $canDonate');
         
-        // Update the user's availability flag based on donation date eligibility
+        // Update the user's availability flag based on days since last donation
         final updatedUser = _currentUser!.copyWith(
-          isAvailableToDonate: _currentUser!.isAvailableBasedOnDonationDate,
+          isAvailableToDonate: canDonate,
         );
         
         await updateUserProfile(updatedUser);
         debugPrint('Updated availability based on donation date: ${updatedUser.isAvailableToDonate}');
+      } else {
+        debugPrint('No need to update eligibility. Current status: ${_currentUser!.isAvailableToDonate}, Days remaining: $daysRemaining');
       }
     }
   }

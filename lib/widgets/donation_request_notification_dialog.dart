@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/user_model.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DonationRequestNotificationDialog extends StatefulWidget {
   final String requesterId;
@@ -203,34 +204,138 @@ class _DonationRequestNotificationDialogState
 
   // Accept donation request
   void _acceptDonationRequest() {
-    // Forward to blood request notification dialog to handle acceptance
-    Navigator.pop(context);
-    Navigator.of(context).pushReplacementNamed(
-      '/blood_request_notification',
-      arguments: {
-        'requestId': widget.requestId,
-        'requesterId': widget.requesterId,
-        'requesterName': widget.requesterName,
-        'requesterPhone': widget.requesterPhone,
-        'bloodType': widget.requesterBloodType,
-        'location': widget.requesterAddress,
-        'urgency': 'High',
-        'notes': 'Donation request from ${widget.requesterName}',
-        'requestDate': DateTime.now().toIso8601String(),
-      },
-    );
+    // Update status in Firestore
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      debugPrint('Accepting donation request: ${widget.requestId}');
+      
+      // Update donation request status
+      FirebaseFirestore.instance
+          .collection('donation_requests')
+          .doc(widget.requestId)
+          .update({
+            'status': 'Accepted',
+            'acceptedAt': DateTime.now().toIso8601String(),
+          }).then((_) {
+            debugPrint('Donation request accepted successfully in Firestore');
+            setState(() {
+              _isLoading = false;
+            });
+            
+            // Close this dialog
+            Navigator.pop(context);
+            
+            // Navigate to donation tracking screen - My Donations > Accepted tab
+            Navigator.of(context).pushReplacementNamed(
+              '/donation_tracking',
+              arguments: {
+                'initialIndex': 1, // My Donations tab
+                'subTabIndex': 0,   // Accepted subtab
+              },
+            );
+            
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Donation request accepted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }).catchError((error) {
+            debugPrint('Error accepting donation request: $error');
+            setState(() {
+              _isLoading = false;
+            });
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error accepting donation: $error'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          });
+    } catch (e) {
+      debugPrint('Exception in _acceptDonationRequest: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Decline donation request
   void _declineDonationRequest() {
-    // TODO: Implement donation declination
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('You declined the donation request.'),
-        backgroundColor: Colors.grey,
-      ),
-    );
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      debugPrint('Declining donation request: ${widget.requestId}');
+      
+      // Update donation request status in Firestore
+      FirebaseFirestore.instance
+          .collection('donation_requests')
+          .doc(widget.requestId)
+          .update({
+            'status': 'Declined',
+            'declinedAt': DateTime.now().toIso8601String(),
+          }).then((_) {
+            debugPrint('Donation request declined successfully in Firestore');
+            setState(() {
+              _isLoading = false;
+            });
+            
+            // Close dialog
+            Navigator.pop(context);
+            
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('You declined the donation request.'),
+                backgroundColor: Colors.grey,
+              ),
+            );
+          }).catchError((error) {
+            debugPrint('Error declining donation request: $error');
+            setState(() {
+              _isLoading = false;
+            });
+            
+            // Still close the dialog but show error
+            Navigator.pop(context);
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error declining donation: $error'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          });
+    } catch (e) {
+      debugPrint('Exception in _declineDonationRequest: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Still close dialog
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // View accepted donation details
@@ -314,7 +419,7 @@ class _DonationRequestNotificationDialogState
                       child: Text(
                         widget.isAlreadyAccepted
                             ? 'Accepted Donation Request'
-                            : 'Blood Donation Request',
+                            : 'Blood Donation Request From Recipient',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -337,7 +442,7 @@ class _DonationRequestNotificationDialogState
                               Text(
                                 widget.isAlreadyAccepted
                                     ? 'Donation in Progress'
-                                    : 'Urgent Request',
+                                    : 'Request For Your Blood',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -789,6 +894,39 @@ class _DonationRequestNotificationDialogState
   // Action buttons - Enhanced styling
   Widget _buildActionButtons() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Debug information about the isAlreadyAccepted flag
+    debugPrint('DonationRequestNotificationDialog - isAlreadyAccepted: ${widget.isAlreadyAccepted}');
+
+    // If loading, show progress indicator
+    if (_isLoading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.black12 : Colors.grey.shade50,
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                'Processing request...',
+                style: TextStyle(
+                  color: AppConstants.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

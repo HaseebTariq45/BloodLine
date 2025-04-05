@@ -111,6 +111,8 @@ class _SignupScreenState extends State<SignupScreen>
             'city': _city,
             'isAvailableToDonate': _isAvailableToDonate,
             'createdAt': FieldValue.serverTimestamp(),
+            'neverDonatedBefore': true,
+            'lastDonationDate': null,
           });
 
       if (mounted) {
@@ -655,7 +657,8 @@ class _SignupScreenState extends State<SignupScreen>
                                 child: DropdownButton<String>(
                                   value: _city.isEmpty ? null : _city,
                                   isExpanded: true,
-                                  hint: Center(
+                                  hint: Padding(
+                                    padding: const EdgeInsets.only(left: 16.0),
                                     child: Text(
                                       'Select City',
                                       style: TextStyle(
@@ -682,57 +685,40 @@ class _SignupScreenState extends State<SignupScreen>
                                     fontWeight: FontWeight.w500,
                                   ),
                                   menuMaxHeight: MediaQuery.of(context).size.height * 0.4,
-                                  selectedItemBuilder: (BuildContext context) {
-                                    return [null, ...CityManager().cities].map<Widget>((item) {
-                                      if (item == null) {
-                                        return const SizedBox.shrink(); // This will never be used because of our value handling
-                                      }
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(left: 16.0),
-                                          child: Text(
-                                            item.toString(),
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: formFontSize,
+                                  items: CityManager().cities.map<DropdownMenuItem<String>>((String city) {
+                                    return DropdownMenuItem<String>(
+                                      value: city,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 16.0),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.location_on,
+                                              size: 16,
+                                              color: AppConstants.primaryColor,
                                             ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList();
-                                  },
-                                  items:
-                                      (CityManager().cities.toList())
-                                          .map<DropdownMenuItem<String>>((String city) {
-                                        return DropdownMenuItem<String>(
-                                          value: city,
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on,
-                                                size: 16,
-                                                color: AppConstants.primaryColor,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  city,
-                                                  style: TextStyle(
-                                                    color: context.textColor,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                city,
+                                                style: TextStyle(
+                                                  color: context.textColor,
                                                 ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                  onChanged: (newValue) {
-                                    setState(() {
-                                      _city = newValue ?? '';
-                                    });
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (String? newValue) {
+                                    if (newValue != null) {
+                                      setState(() {
+                                        _city = newValue;
+                                        debugPrint('Selected city: $_city');
+                                      });
+                                    }
                                   },
                                   dropdownColor: context.cardColor,
                                   borderRadius: BorderRadius.circular(15),

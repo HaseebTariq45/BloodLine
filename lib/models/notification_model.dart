@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class NotificationModel {
   final String id;
   final String userId;
@@ -21,6 +23,22 @@ class NotificationModel {
 
   // Create a notification model from a map
   factory NotificationModel.fromMap(Map<String, dynamic> map, String docId) {
+    // Handle createdAt field which could be a Timestamp, String, or null
+    String createdAtString;
+    final createdAt = map['createdAt'];
+    
+    if (createdAt == null) {
+      createdAtString = DateTime.now().toIso8601String();
+    } else if (createdAt is String) {
+      createdAtString = createdAt;
+    } else if (createdAt is Timestamp) {
+      // Convert Firestore Timestamp to DateTime and then to ISO string
+      createdAtString = createdAt.toDate().toIso8601String();
+    } else {
+      // Fallback
+      createdAtString = DateTime.now().toIso8601String();
+    }
+
     return NotificationModel(
       id: docId,
       userId: map['userId'] ?? '',
@@ -28,7 +46,7 @@ class NotificationModel {
       body: map['body'] ?? '',
       type: map['type'] ?? 'general',
       read: map['read'] ?? false,
-      createdAt: map['createdAt'] ?? DateTime.now().toIso8601String(),
+      createdAt: createdAtString,
       metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
     );
   }

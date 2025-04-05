@@ -208,6 +208,31 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Banner to notify about donation history inconsistency
+                  if (currentUser.lastDonationDate != null && currentUser.neverDonatedBefore)
+                    InkWell(
+                      onTap: () {
+                        Navigator.pushNamed(context, '/profile');
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        color: Colors.amber.shade100,
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Your donation history needs attention. Tap to fix.',
+                                style: TextStyle(color: Colors.amber.shade900),
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.amber.shade800),
+                          ],
+                        ),
+                      ),
+                    ),
                   // Header Section
                   Container(
                     padding: standardPadding,

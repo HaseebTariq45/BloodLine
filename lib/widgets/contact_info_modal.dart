@@ -6,15 +6,24 @@ class ContactInfoModal extends StatelessWidget {
   final String name;
   final String phone;
   final String title;
+  final VoidCallback? onCallPressed;
+  final VoidCallback? onMessagePressed;
 
   const ContactInfoModal({
     super.key,
     required this.name,
     required this.phone,
     required this.title,
+    this.onCallPressed,
+    this.onMessagePressed,
   });
 
   Future<void> _makePhoneCall(String phoneNumber) async {
+    if (onCallPressed != null) {
+      onCallPressed!();
+      return;
+    }
+    
     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
     try {
       await launchUrl(launchUri);
@@ -24,6 +33,11 @@ class ContactInfoModal extends StatelessWidget {
   }
 
   Future<void> _sendSMS(String phoneNumber) async {
+    if (onMessagePressed != null) {
+      onMessagePressed!();
+      return;
+    }
+    
     final Uri launchUri = Uri(scheme: 'sms', path: phoneNumber);
     try {
       await launchUrl(launchUri);

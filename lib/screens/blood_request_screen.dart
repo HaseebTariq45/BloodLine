@@ -1103,7 +1103,8 @@ class _BloodRequestScreenState extends State<BloodRequestScreen>
               child: DropdownButton<String>(
                 value: _selectedCity,
                 isExpanded: true,
-                hint: Center(
+                hint: Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
                   child: Text(
                     'Select City',
                     style: TextStyle(
@@ -1131,52 +1132,41 @@ class _BloodRequestScreenState extends State<BloodRequestScreen>
                 ),
                 // Limit visible items to improve performance
                 menuMaxHeight: MediaQuery.of(context).size.height * 0.4,
-                // Add city search preview
-                selectedItemBuilder: (BuildContext context) {
-                  return CityManager().cities.map<Widget>((
-                    item,
-                  ) {
-                    return Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        item.toString(),
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    );
-                  }).toList();
-                },
                 items: CityManager().cities.map((location) {
                   return DropdownMenuItem<String>(
                     value: location,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: AppConstants.primaryColor,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: TextStyle(
-                              color: context.textColor,
-                              fontWeight: FontWeight.normal,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: AppConstants.primaryColor,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              location,
+                              style: TextStyle(
+                                color: context.textColor,
+                                fontWeight: FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCity = value!;
-                  });
+                onChanged: (String? value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedCity = value;
+                      debugPrint('BloodRequest: Selected city: $_selectedCity');
+                    });
+                  }
                 },
                 dropdownColor: context.cardColor,
                 borderRadius: BorderRadius.circular(15),

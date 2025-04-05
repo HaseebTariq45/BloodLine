@@ -72,6 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   String? _medicalConditions;
   String? _lastDonationLocation;
   int? _donationCount;
+  bool _neverHadHealthCheck = false;
 
   @override
   void initState() {
@@ -98,18 +99,15 @@ class _ProfileScreenState extends State<ProfileScreen>
     _isAvailableToDonate = currentUser.isAvailableToDonate;
 
     // Initialize health data
-    _lastHealthCheck = 'June 15, 2023'; // Example data
+    _lastHealthCheck = null; // Will be fetched from Firestore
     _healthStatus = 'Healthy';
     _healthStatusColor = Colors.green;
     _medicalConditions = 'None';
 
     // Initialize donation data
-    _lastDonationLocation = 'City Hospital';
-    _nextDonationDate = DateTime.now()
-        .add(const Duration(days: 30))
-        .toString()
-        .substring(0, 10);
-    _donationCount = 3;
+    _lastDonationLocation = null; // Will be fetched from Firestore
+    _nextDonationDate = null; // Will be calculated from user's last donation date
+    _donationCount = null; // Will be calculated from donation history
 
     _loadUserData();
   }
@@ -125,13 +123,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _loadUserData() async {
-    if (!mounted) return;  // Don't proceed if widget is not mounted
+    if (!mounted) return;
     
+    try {
     setState(() {
       _isLoading = true;
     });
 
-    try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         _userId = user.uid;
@@ -143,10 +141,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 .doc(_userId)
                 .get();
 
+        if (!mounted) return;  // Check mounted after async operation
+
         if (userDoc.exists) {
           final data = userDoc.data()!;
-
-          if (!mounted) return;  // Check again after async operation
           
           // Update controllers with null safety
           _nameController.text = data['name'] ?? '';
@@ -156,7 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           final phoneValue = data['phoneNumber'] ?? '';
           _phoneController.text = phoneValue;
           _phoneNumber = phoneValue;
-          print('Loaded phone number from Firestore: $phoneValue');
+          debugPrint('Loaded phone number from Firestore: $phoneValue');
           
           _addressController.text = data['address'] ?? '';
 
@@ -169,32 +167,59 @@ class _ProfileScreenState extends State<ProfileScreen>
           // Handle lastDonationDate with better null safety
           if (data['lastDonationDate'] != null) {
             try {
+              DateTime lastDonationDateTime;
+              
               if (data['lastDonationDate'] is Timestamp) {
-                _lastDonationDate =
-                    (data['lastDonationDate'] as Timestamp)
-                        .toDate()
-                        .millisecondsSinceEpoch
-                        .toString();
+                lastDonationDateTime = (data['lastDonationDate'] as Timestamp).toDate();
+                _lastDonationDate = lastDonationDateTime.toString().substring(0, 10);
               } else if (data['lastDonationDate'] is int) {
-                _lastDonationDate = data['lastDonationDate'].toString();
+                lastDonationDateTime = DateTime.fromMillisecondsSinceEpoch(data['lastDonationDate'] as int);
+                _lastDonationDate = lastDonationDateTime.toString().substring(0, 10);
               } else if (data['lastDonationDate'] is String) {
-                _lastDonationDate = data['lastDonationDate'];
+                lastDonationDateTime = DateTime.parse(data['lastDonationDate'] as String);
+                _lastDonationDate = lastDonationDateTime.toString().substring(0, 10);
+              } else {
+                throw Exception('Unknown lastDonationDate format');
+              }
+              
+              // Calculate next donation date (90 days after last donation)
+              final nextEligibleDate = lastDonationDateTime.add(const Duration(days: 90));
+              _nextDonationDate = nextEligibleDate.toString().substring(0, 10);
+              
+              // Debug output
+              debugPrint('Last donation: $_lastDonationDate, Next eligible: $_nextDonationDate');
+              
+              // Fetch the location of the last donation
+              if (mounted) {
+                _fetchLastDonationLocation(user.uid);
               }
             } catch (e) {
-              print('Error parsing lastDonationDate: $e');
+              debugPrint('Error parsing lastDonationDate: $e');
               _lastDonationDate = null;
+              _nextDonationDate = null;
             }
+          } else if (data['neverDonatedBefore'] == true) {
+            // Set appropriate values for users who never donated
+            _lastDonationDate = 'Never donated before';
+            _nextDonationDate = 'Eligible to donate';
+            _lastDonationLocation = 'No donation history';
+            debugPrint('User has never donated before');
           }
         }
 
+        if (!mounted) return;  // Check mounted again
+
         // Load health questionnaire data with null safety
+        try {
         final healthDoc =
             await FirebaseFirestore.instance
                 .collection('health_questionnaires')
                 .doc(_userId)
                 .get();
 
-        if (healthDoc.exists && mounted) {  // Check if still mounted
+          if (!mounted) return;  // Check mounted after async operation
+                
+          if (healthDoc.exists) {
           final data = healthDoc.data()!;
 
           setState(() {
@@ -216,14 +241,78 @@ class _ProfileScreenState extends State<ProfileScreen>
             // Determine health status
             _determineHealthStatus();
           });
+          }
+        } catch (e) {
+          debugPrint('Error loading health questionnaire data: $e');
         }
         
+        if (!mounted) return;  // Check mounted again
+        
         // Sync availability status based on donation date when profile loads
+        try {
         final appProvider = Provider.of<AppProvider>(context, listen: false);
         await appProvider.syncDonationAvailability();
+        } catch (e) {
+          debugPrint('Error syncing availability: $e');
+        }
+        
+        if (!mounted) return;  // Check mounted again
+        
+        // Load last health check data
+        try {
+          final healthDoc = await FirebaseFirestore.instance
+              .collection('health_questionnaires')
+              .doc(_userId)
+              .get();
+              
+          if (!mounted) return;  // Check mounted after async operation
+              
+          if (healthDoc.exists && healthDoc.data() != null) {
+            final healthData = healthDoc.data()!;
+            
+            // Check if user has indicated they never had a health check
+            final bool neverHadHealthCheck = healthData['neverHadHealthCheck'] ?? false;
+            
+            setState(() {
+              _neverHadHealthCheck = neverHadHealthCheck;
+              
+              if (neverHadHealthCheck) {
+                _lastHealthCheck = 'Never had a health check';
+              } else {
+                // Get the last health check date if available
+                final lastHealthCheckDate = healthData['lastHealthCheckDate'];
+                _lastHealthCheck = lastHealthCheckDate != null && lastHealthCheckDate.isNotEmpty
+                    ? lastHealthCheckDate
+                    : 'Not available';
+              }
+            });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+          debugPrint('Error loading health check data: $e');
+        }
+
+        if (!mounted) return;  // Check mounted again
+
+        // After loading all data, check for inconsistencies and fix them
+        try {
+          final currentUser = Provider.of<AppProvider>(context, listen: false).currentUser;
+          
+          // Automatically fix inconsistencies (last donation date exists but neverDonatedBefore is true)
+          if (currentUser.lastDonationDate != null && currentUser.neverDonatedBefore) {
+            debugPrint('Found inconsistency in donation history, fixing automatically');
+            await _fixDonationStatusInconsistency(_userId);
+          }
+        } catch (e) {
+          debugPrint('Error checking for inconsistencies: $e');
+        }
+
+        if (!mounted) return;  // Check mounted again
+        
+        // Fetch donation count
+        _fetchDonationCount(user.uid);
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
     } finally {
       if (mounted) {  // Only call setState if still mounted
         setState(() {
@@ -380,6 +469,366 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  Future<void> _fetchLastDonationLocation(String userId) async {
+    try {
+      // Simplify the query to avoid requiring an index
+      final donationsQuery = await FirebaseFirestore.instance
+          .collection('donations')
+          .where('donorId', isEqualTo: userId)
+          .where('status', isEqualTo: 'Completed')
+          .get();
+          
+      if (!mounted) return;
+      
+      if (donationsQuery.docs.isNotEmpty) {
+        // Sort manually instead of using orderBy to avoid requiring an index
+        final sortedDocs = donationsQuery.docs.toList()
+          ..sort((a, b) {
+            // Get completion dates from documents
+            final dateA = a.data()['completionDate'];
+            final dateB = b.data()['completionDate'];
+            
+            if (dateA == null) return 1;
+            if (dateB == null) return -1;
+            
+            // Parse ISO dates and compare
+            final dateTimeA = DateTime.tryParse(dateA);
+            final dateTimeB = DateTime.tryParse(dateB);
+            
+            if (dateTimeA == null) return 1;
+            if (dateTimeB == null) return -1;
+            
+            // Sort descending (newest first)
+            return dateTimeB.compareTo(dateTimeA);
+          });
+        
+        // Use the first (most recent) donation
+        final latestDonation = sortedDocs.first.data();
+        final appProvider = Provider.of<AppProvider>(context, listen: false);
+        final currentUser = appProvider.currentUser;
+        
+        if (mounted) {
+          setState(() {
+            // Try to get location from the donation record
+            if (latestDonation['location'] != null && latestDonation['location'].toString().isNotEmpty) {
+              _lastDonationLocation = latestDonation['location'];
+            } else if (latestDonation['bloodRequestId'] != null) {
+              // If no location in donation, try to get it from the associated blood request
+              // Don't return, so we still set a default value in case _fetchLocationFromBloodRequest fails
+              _lastDonationLocation = 'Retrieving...';
+              _fetchLocationFromBloodRequest(latestDonation['bloodRequestId']);
+            } else {
+              // Use the user's location as fallback
+              _lastDonationLocation = '${currentUser.city} (from profile)';
+              
+              // Try to update the donation with this location
+              _updateDonationLocation();
+            }
+            
+            debugPrint('Last donation location from donations collection: $_lastDonationLocation');
+          });
+        }
+      } else {
+        // If no donations found, try blood_requests collection
+        if (mounted) {
+          setState(() {
+            _lastDonationLocation = 'Unknown location';
+          });
+          _fetchLocationFromBloodRequests(userId);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching last donation location: $e');
+      // Set a default value in case of error
+      if (mounted) {
+        setState(() {
+          _lastDonationLocation = 'Location unavailable';
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchLocationFromBloodRequests(String userId) async {
+    if (!mounted) return;
+    
+    try {
+      // Search for completed blood requests where this user was the donor
+      // Simplify query to avoid requiring index
+      final requestsQuery = await FirebaseFirestore.instance
+          .collection('blood_requests')
+          .where('responderId', isEqualTo: userId)
+          .where('status', isEqualTo: 'Completed')
+          .get();
+          
+      if (!mounted) return;
+          
+      if (requestsQuery.docs.isNotEmpty) {
+        // Sort manually
+        final sortedDocs = requestsQuery.docs.toList()
+          ..sort((a, b) {
+            final dateA = a.data()['completionDate'];
+            final dateB = b.data()['completionDate'];
+            
+            if (dateA == null) return 1;
+            if (dateB == null) return -1;
+            
+            return dateB.compareTo(dateA); // Sort descending
+          });
+          
+        final latestRequest = sortedDocs.first.data();
+        setState(() {
+          _lastDonationLocation = latestRequest['location'] ?? 'Unknown';
+          debugPrint('Last donation location from blood requests: $_lastDonationLocation');
+        });
+      } else {
+        debugPrint('No completed requests found for donor $userId');
+      }
+    } catch (e) {
+      debugPrint('Error fetching location from blood requests: $e');
+    }
+  }
+
+  Future<void> _fetchLocationFromBloodRequest(String requestId) async {
+    if (!mounted) return;
+    
+    try {
+      final requestDoc = await FirebaseFirestore.instance
+          .collection('blood_requests')
+          .doc(requestId)
+          .get();
+          
+      if (!mounted) return;
+          
+      if (requestDoc.exists && requestDoc.data() != null) {
+        final requestData = requestDoc.data()!;
+        setState(() {
+          _lastDonationLocation = requestData['location'] ?? 'Unknown';
+          debugPrint('Last donation location from request $requestId: $_lastDonationLocation');
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching location from blood request: $e');
+    }
+  }
+
+  Future<void> _fetchDonationCount(String userId) async {
+    if (!mounted) return;
+    
+    try {
+      final donationsQuery = await FirebaseFirestore.instance
+          .collection('donations')
+          .where('donorId', isEqualTo: userId)
+          .where('status', isEqualTo: 'Completed')
+          .get();
+          
+      if (!mounted) return;
+      
+      setState(() {
+        _donationCount = donationsQuery.docs.length;
+        debugPrint('Fetched donation count: $_donationCount');
+      });
+    } catch (e) {
+      debugPrint('Error fetching donation count: $e');
+    }
+  }
+
+  // Method to immediately fix the donation status inconsistency
+  Future<void> _fixDonationStatusInconsistency(String? userId) async {
+    if (!mounted) return;
+    
+    try {
+      if (userId == null) {
+        debugPrint('Cannot fix donation status: userId is null');
+        return;
+      }
+      
+      // Only fix if there's an inconsistency (lastDonationDate exists but neverDonatedBefore is true)
+      final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+      final userDoc = await userRef.get();
+      
+      if (!mounted) return;
+      
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        
+        if (userData != null && 
+            userData['lastDonationDate'] != null && 
+            userData['neverDonatedBefore'] == true) {
+          
+          // Update Firestore
+          await userRef.update({'neverDonatedBefore': false});
+          
+          if (!mounted) return;
+          
+          // Update local model
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          final currentUser = appProvider.currentUser;
+          final updatedUser = currentUser.copyWith(neverDonatedBefore: false);
+          await appProvider.updateUserProfile(updatedUser);
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Donation history status fixed'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          
+          setState(() {
+            // Reload UI
+            _loadUserData();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fixing donation status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error fixing donation status: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // Method to update donation location from user's profile
+  Future<void> _updateDonationLocation() async {
+    if (!mounted) return;
+    
+    try {
+      if (_userId == null) {
+        debugPrint('Cannot update donation location: userId is null');
+        return;
+      }
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final currentUser = appProvider.currentUser;
+      
+      // Get user's address and city for location
+      final userLocation = '${currentUser.address}, ${currentUser.city}';
+      
+      // Find all donations for this user
+      final donationsQuery = await FirebaseFirestore.instance
+          .collection('donations')
+          .where('donorId', isEqualTo: _userId)
+          .get();
+          
+      if (!mounted) {
+        Navigator.pop(context); // Close loading dialog
+        return;
+      }
+      
+      if (donationsQuery.docs.isNotEmpty) {
+        // Get the batch to perform multiple updates
+        final batch = FirebaseFirestore.instance.batch();
+        int updatedCount = 0;
+        
+        for (final doc in donationsQuery.docs) {
+          final donationRef = FirebaseFirestore.instance.collection('donations').doc(doc.id);
+          
+          // Only update if location is missing
+          final data = doc.data();
+          if (data['location'] == null || data['location'].toString().isEmpty) {
+            // Try to get location from the original request if available
+            String locationToUse = userLocation;
+            
+            if (data['requestId'] != null) {
+              try {
+                final requestDoc = await FirebaseFirestore.instance
+                    .collection('blood_requests')
+                    .doc(data['requestId'])
+                    .get();
+                    
+                if (requestDoc.exists && requestDoc.data() != null) {
+                  final requestData = requestDoc.data()!;
+                  if (requestData['location'] != null && requestData['location'].toString().isNotEmpty) {
+                    locationToUse = requestData['location'];
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error getting location from request: $e');
+              }
+            }
+            
+            batch.update(donationRef, {
+              'location': locationToUse,
+            });
+            updatedCount++;
+            debugPrint('Updating location for donation ${doc.id} to: $locationToUse');
+          }
+        }
+        
+        // Commit the batch
+        if (updatedCount > 0) {
+          await batch.commit();
+        }
+        
+        // Close loading dialog
+        if (mounted) {
+          Navigator.pop(context);
+          
+          setState(() {
+            _lastDonationLocation = userLocation;
+            debugPrint('Updated last donation location to: $userLocation');
+          });
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Updated $updatedCount donation records with location data'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          
+          // Refresh the data
+          _loadUserData();
+        }
+      } else {
+        // Close loading dialog
+        if (mounted) {
+          Navigator.pop(context);
+          
+          // Show message that no donations were found
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('No donation records found to update'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog if still shown
+      try {
+        Navigator.pop(context);
+      } catch (_) {}
+      
+      debugPrint('Error updating donation location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating donation location: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -393,6 +842,16 @@ class _ProfileScreenState extends State<ProfileScreen>
         title: _isEditing ? 'Edit Profile' : 'My Profile',
         showProfilePicture: false,
         actions: [
+          // Fix inconsistency button (only shown when needed)
+          if (currentUser.lastDonationDate != null && currentUser.neverDonatedBefore)
+            IconButton(
+              onPressed: () => _fixDonationStatusInconsistency(_userId),
+              icon: Icon(
+                Icons.sync_problem,
+                color: Colors.orange,
+              ),
+              tooltip: 'Fix donation history inconsistency',
+            ),
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: Colors.white),
             tooltip: 'Settings',
@@ -906,7 +1365,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     _buildInfoRow(
                       'Last Health Check',
-                      _lastHealthCheck ?? 'Not available',
+                      _neverHadHealthCheck 
+                        ? 'Never had a health check' 
+                        : (_lastHealthCheck ?? 'Not available'),
                       Icons.calendar_today_outlined,
                     ),
                     _buildInfoRow(
@@ -929,7 +1390,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
 
             // Donation history section with responsive styling
-            if (user.lastDonationDate != null) ...[
+            if (user.lastDonationDate != null || user.neverDonatedBefore) ...[
               SizedBox(height: cardSpacing),
               Card(
                 elevation: 2,
@@ -965,28 +1426,46 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ],
                       ),
                       Divider(thickness: screenSize.height * 0.002),
+                      
+                      // Last donation date (or message if never donated)
                       _buildInfoRow(
                         'Last Donation',
-                        user.lastDonationDate.toString().substring(0, 10),
-                        Icons.calendar_month_outlined,
+                        user.neverDonatedBefore 
+                          ? 'Never donated before' 
+                          : (_lastDonationDate ?? 'Not available'),
+                        Icons.calendar_today_outlined,
                       ),
+                      
+                      // Time until eligible (or message if eligible now)
+                      _buildInfoRow(
+                        'Next Eligible',
+                        user.neverDonatedBefore 
+                          ? 'Eligible to donate' 
+                          : (_nextDonationDate ?? 'Not calculated'),
+                        Icons.event_available_outlined,
+                        valueColor: user.isAvailableToDonate ? Colors.green : Colors.orange[700],
+                        valueBold: user.isAvailableToDonate,
+                      ),
+                      
+                      // Total donations (0 if never donated)
                       _buildInfoRow(
                         'Total Donations',
-                        '${_donationCount ?? 0}',
+                        user.neverDonatedBefore ? '0' : (_donationCount != null ? '$_donationCount' : 'Loading...'),
                         Icons.bloodtype,
                         valueColor: AppConstants.primaryColor,
                         valueBold: true,
                       ),
+                      
+                      // Last location (or message if never donated)
                       _buildInfoRow(
                         'Last Location',
-                        _lastDonationLocation ?? 'Not recorded',
+                        user.neverDonatedBefore 
+                          ? 'No previous donation' 
+                          : (_lastDonationLocation ?? 'Not available'),
                         Icons.location_on_outlined,
-                      ),
-                      _buildInfoRow(
-                        'Next Eligible Date',
-                        _nextDonationDate ?? 'Not available',
-                        Icons.event_available_outlined,
-                        valueColor: Colors.green,
+                        onTap: !user.neverDonatedBefore && (_lastDonationLocation == 'Unknown location' || _lastDonationLocation == 'Location unavailable')
+                          ? () => _updateDonationLocation()
+                          : null,
                       ),
                     ],
                   ),
@@ -1010,6 +1489,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     IconData icon, {
     Color? valueColor,
     bool valueBold = false,
+    VoidCallback? onTap,
   }) {
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
@@ -1021,7 +1501,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     final valueFontSize = screenSize.width * 0.04;
     final spacing = screenSize.width * 0.03;
 
-    return Padding(
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
       padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.01),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1046,7 +1528,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 SizedBox(height: screenSize.height * 0.005),
                 // Value - use normal Text with ellipsis for multiline text
-                Text(
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
                   value,
                   style: TextStyle(
                     fontSize: valueFontSize,
@@ -1055,11 +1540,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
+                        ),
+                      ),
+                      if (onTap != null)
+                        Icon(
+                          Icons.refresh,
+                          size: iconSize * 0.8,
+                          color: AppConstants.primaryColor,
+                        ),
+                    ],
                 ),
               ],
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1773,7 +2268,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: DropdownButton<String>(
                 value: _city.isEmpty ? null : _city,
                 isExpanded: true,
-                hint: Center(
+                hint: Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
                   child: Text(
                     'Select City',
                     style: TextStyle(
@@ -1800,24 +2296,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                   fontWeight: FontWeight.w500,
                 ),
                 menuMaxHeight: MediaQuery.of(context).size.height * 0.4,
-                selectedItemBuilder: (BuildContext context) {
-                  return CityManager().cities.map<Widget>((item) {
-                    return Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        item,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: fontSize,
-                        ),
-                      ),
-                    );
-                  }).toList();
-                },
                 items: CityManager().cities.map((String city) {
                   return DropdownMenuItem<String>(
                     value: city,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16.0),
                     child: Row(
                       children: [
                         Icon(
@@ -1837,14 +2320,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                       ],
+                      ),
                     ),
                   );
                 }).toList(),
                 onChanged: _isEditing
-                  ? (newValue) {
+                  ? (String? newValue) {
+                    if (newValue != null) {
                     setState(() {
-                      _city = newValue!;
+                        _city = newValue;
+                        debugPrint('Profile: Selected city: $_city');
                     });
+                    }
                   }
                   : null,
                 dropdownColor: Theme.of(context).cardColor,
@@ -1859,104 +2346,13 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // Build formatted text input
-  Widget _buildTextInput(
-    String label,
-    TextEditingController controller,
-    IconData icon, {
-    bool readOnly = false,
-    bool isRequired = false,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-  }) {
-    final mediaQuery = MediaQuery.of(context);
-    final screenSize = mediaQuery.size;
-    final fontSize = screenSize.width * 0.04;
-    final iconSize = screenSize.width * 0.055;
-    final borderRadius = BorderRadius.circular(screenSize.width * 0.03);
-
-    // Enhanced phone number handling with better debugging
-    if (label == 'Phone') {
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final currentUser = appProvider.currentUser;
-      
-      print('Phone field check - controller value: ${controller.text}');
-      print('Phone field check - _phoneNumber value: $_phoneNumber');
-      print('Phone field check - provider value: ${currentUser.phoneNumber}');
-      
-      if (controller.text.isEmpty) {
-        // Try provider value first
-        if (currentUser.phoneNumber.isNotEmpty) {
-          controller.text = currentUser.phoneNumber;
-          _phoneNumber = currentUser.phoneNumber;
-          print('Setting phone controller from provider in text input: ${currentUser.phoneNumber}');
-        } 
-        // Then try cached value
-        else if (_phoneNumber != null && _phoneNumber!.isNotEmpty) {
-          controller.text = _phoneNumber!;
-          print('Setting phone controller from cached value in text input: $_phoneNumber');
-        }
-      }
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: screenSize.height * 0.02),
-      child: TextFormField(
-        controller: controller,
-        readOnly: readOnly,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        style: TextStyle(
-          fontSize: fontSize,
-          color:
-              readOnly
-                  ? Colors.grey
-                  : Theme.of(context).textTheme.bodyMedium?.color,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(fontSize: fontSize),
-          prefixIcon: Icon(
-            icon,
-            color: AppConstants.primaryColor,
-            size: iconSize,
-          ),
-          border: OutlineInputBorder(borderRadius: borderRadius),
-          filled: true,
-          fillColor: Theme.of(context).cardColor,
-          contentPadding: EdgeInsets.symmetric(
-            vertical: screenSize.height * 0.015,
-            horizontal: screenSize.width * 0.03,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: borderRadius,
-            borderSide: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: borderRadius,
-            borderSide: BorderSide(color: AppConstants.primaryColor, width: 2),
-          ),
-        ),
-        validator:
-            isRequired
-                ? (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your $label';
-                  }
-                  return null;
-                }
-                : null,
-      ),
-    );
-  }
-
   // Build blood type selector
   Widget _buildBloodTypeSelector() {
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
+    
     final fontSize = screenSize.width * 0.04;
     final labelFontSize = fontSize * 0.9;
-    final iconSize = screenSize.width * 0.055;
     final borderRadius = BorderRadius.circular(screenSize.width * 0.03);
 
     return Container(
@@ -1995,15 +2391,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: DropdownButton<String>(
                 value: _bloodType,
                 isExpanded: true,
-                hint: Center(
-                  child: Text(
-                    'Select Blood Type',
-                    style: TextStyle(
-                      color: Theme.of(context).hintColor,
-                      fontSize: fontSize,
-                    ),
-                  ),
-                ),
                 icon: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -2022,11 +2409,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                   fontWeight: FontWeight.w500,
                 ),
                 selectedItemBuilder: (BuildContext context) {
-                  return _bloodTypes.map<Widget>((String type) {
+                  return _bloodTypes.map<Widget>((item) {
                     return Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        type,
+                        item,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
@@ -2036,43 +2423,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                     );
                   }).toList();
                 },
-                items: _bloodTypes.map((String type) {
+                items: _bloodTypes.map((String bloodType) {
                   return DropdownMenuItem<String>(
-                    value: type,
+                    value: bloodType,
                     child: Row(
                       children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                        Icon(
+                          Icons.bloodtype_outlined,
+                          size: 16,
                             color: AppConstants.primaryColor,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppConstants.primaryColor.withOpacity(0.3),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              type,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Text(
-                          type,
+                          bloodType,
                           style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: fontSize,
                             color: Theme.of(context).textTheme.bodyLarge?.color,
+                            fontSize: fontSize,
                           ),
                         ),
                       ],
@@ -2098,31 +2464,110 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // Method to ensure phone values are synchronized
-  void _syncPhoneValues() {
-    // Only sync if not in the process of editing
-    if (!_isEditing) {
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final currentUser = appProvider.currentUser;
-      
-      // Priority order: _phoneController > _phoneNumber > provider
-      if (_phoneController.text.isNotEmpty) {
-        _phoneNumber = _phoneController.text;
-        print('Syncing from controller: $_phoneNumber');
-      } else if (_phoneNumber != null && _phoneNumber!.isNotEmpty) {
-        _phoneController.text = _phoneNumber!;
-        print('Syncing from _phoneNumber: $_phoneNumber');
-      } else if (currentUser.phoneNumber.isNotEmpty) {
-        _phoneNumber = currentUser.phoneNumber;
-        _phoneController.text = currentUser.phoneNumber;
-        print('Syncing from provider: $_phoneNumber');
-      }
-    }
+  // Build formatted text input
+  Widget _buildTextInput(
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    bool readOnly = false,
+    bool isRequired = false,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+  }) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final fontSize = screenSize.width * 0.04;
+    final iconSize = screenSize.width * 0.055;
+    final borderRadius = BorderRadius.circular(screenSize.width * 0.03);
+    
+    return Container(
+      margin: EdgeInsets.only(bottom: screenSize.height * 0.02),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: fontSize * 0.9,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: fontSize * 0.9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: screenSize.height * 0.01),
+          TextField(
+            controller: controller,
+            readOnly: readOnly || !_isEditing,
+            keyboardType: keyboardType,
+            maxLines: maxLines,
+            style: TextStyle(
+              fontSize: fontSize,
+              color: readOnly || !_isEditing
+                  ? Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8)
+                  : Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                icon,
+                color: _isEditing
+                    ? AppConstants.primaryColor
+                    : Theme.of(context).disabledColor,
+                size: iconSize,
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                vertical: screenSize.height * 0.015,
+                horizontal: screenSize.width * 0.03,
+              ),
+              filled: true,
+              fillColor: readOnly || !_isEditing
+                  ? Theme.of(context).disabledColor.withOpacity(0.05)
+                  : Theme.of(context).cardColor,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: borderRadius,
+                borderSide: BorderSide(
+                  color: context.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: borderRadius,
+                borderSide: BorderSide(
+                  color: AppConstants.primaryColor,
+                  width: 1.5,
+                ),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: borderRadius,
+              ),
+              hintText: 'Enter $label',
+              hintStyle: TextStyle(
+                color: Theme.of(context).hintColor,
+                fontSize: fontSize * 0.95,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncPhoneValues();
+  void _toggleNeverDonatedButton() {
+    // Add this call to fix inconsistent data first
+    _fixDonationStatusInconsistency(_userId);
+    
+    // The rest of the method remains the same...
+    // ...
   }
 }

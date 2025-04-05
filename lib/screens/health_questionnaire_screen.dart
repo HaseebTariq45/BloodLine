@@ -89,9 +89,12 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   final _lastDonationController = TextEditingController();
+  final _lastHealthCheckController = TextEditingController();
   final _medicationsController = TextEditingController();
   final _allergiesController = TextEditingController();
   final _diseasesController = TextEditingController();
+  bool _neverDonatedBefore = false;
+  bool _neverHadHealthCheck = false;
   
   // List to store medications and allergies
   List<String> _medicationsList = [];
@@ -165,6 +168,7 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
     _heightController.dispose();
     _weightController.dispose();
     _lastDonationController.dispose();
+    _lastHealthCheckController.dispose();
     _medicationsController.dispose();
     _allergiesController.dispose();
     _diseasesController.dispose();
@@ -511,15 +515,95 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                         icon: Icons.calendar_today,
                         isDate: true,
                         validator: (value) {
+                          // Skip validation if "never donated" is checked
+                          if (_neverDonatedBefore) return null;
+                          
                           if (value == null || value.isEmpty) {
-                            return 'Please select a date';
+                            return 'Please select a date or check "Never donated"';
                           }
                           return null;
+                        },
+                      ),
+                      CheckboxListTile(
+                        title: const Text('I have never donated blood before'),
+                        subtitle: const Text('Check this if this will be your first donation'),
+                        value: _neverDonatedBefore,
+                        activeColor: AppConstants.primaryColor,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                        dense: true,
+                        onChanged: (value) {
+                          setState(() {
+                            _neverDonatedBefore = value ?? false;
+                            // Clear the date field if checkbox is checked
+                            if (_neverDonatedBefore) {
+                              _lastDonationController.clear();
+                            }
+                            _hasUnsavedChanges = true;
+                          });
                         },
                       ),
                     ],
                             ),
                           ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _successAnimationController,
+                    curve: const Interval(0.35, 0.95, curve: Curves.easeOut),
+                  ),
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.2),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: _successAnimationController,
+                      curve: const Interval(0.35, 0.95, curve: Curves.easeOut),
+                    )),
+                    child: _buildSectionCard(
+                      title: 'Health Check History',
+                      icon: Icons.medical_services,
+                      child: Column(
+                        children: [
+                          _buildCustomField(
+                            controller: _lastHealthCheckController,
+                            label: 'Last Health Check Date',
+                            icon: Icons.calendar_today,
+                            isDate: true,
+                            validator: (value) {
+                              // Skip validation if "never had health check" is checked
+                              if (_neverHadHealthCheck) return null;
+                              
+                              if (value == null || value.isEmpty) {
+                                return 'Please select a date or check "Never had a health check"';
+                              }
+                              return null;
+                            },
+                          ),
+                          CheckboxListTile(
+                            title: const Text('I have never had a health check'),
+                            subtitle: const Text('Check this if you have never had a health check for blood donation'),
+                            value: _neverHadHealthCheck,
+                            activeColor: AppConstants.primaryColor,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                            dense: true,
+                            onChanged: (value) {
+                              setState(() {
+                                _neverHadHealthCheck = value ?? false;
+                                // Clear the date field if checkbox is checked
+                                if (_neverHadHealthCheck) {
+                                  _lastHealthCheckController.clear();
+                                }
+                                _hasUnsavedChanges = true;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1739,6 +1823,7 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           _heightController.text = data['height'] ?? '';
           _weightController.text = data['weight'] ?? '';
           _lastDonationController.text = data['lastDonationDate'] ?? '';
+          _neverDonatedBefore = data['neverDonatedBefore'] ?? false;
           _gender = data['gender'] ?? 'Male';
           _hasTattoo = data['hasTattoo'] ?? false;
           _hasPiercing = data['hasPiercing'] ?? false;
@@ -1830,6 +1915,9 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           'height': _heightController.text,
           'weight': _weightController.text,
           'lastDonationDate': _lastDonationController.text,
+          'lastHealthCheckDate': _lastHealthCheckController.text, 
+          'neverDonatedBefore': _neverDonatedBefore,
+          'neverHadHealthCheck': _neverHadHealthCheck,
           'gender': _gender,
           'hasTattoo': _hasTattoo,
           'hasPiercing': _hasPiercing,
@@ -1846,28 +1934,53 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
         });
 
         // Update lastDonationDate in users collection if it has been set
-        if (_lastDonationController.text.isNotEmpty) {
+        // or if user indicated they never donated before
+        if (_lastDonationController.text.isNotEmpty || _neverDonatedBefore) {
           try {
-            // Convert string date to timestamp
-            final lastDonationDate = DateTime.parse(_lastDonationController.text);
-            
-            // Update the user document
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(userId)
-                .update({
-              'lastDonationDate': lastDonationDate.millisecondsSinceEpoch,
-            });
-            
-            // Also update the user model in the app provider
             final appProvider = Provider.of<AppProvider>(context, listen: false);
             final currentUser = appProvider.currentUser;
-            final updatedUser = currentUser.copyWith(
-              lastDonationDate: lastDonationDate,
-            );
-            await appProvider.updateUserProfile(updatedUser);
             
-            debugPrint('Updated lastDonationDate in users collection: ${lastDonationDate.toIso8601String()}');
+            if (_neverDonatedBefore) {
+              // If the user has never donated, set a special flag in their profile
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(userId)
+                  .update({
+                'neverDonatedBefore': true,
+                // Set lastDonationDate to null explicitly
+                'lastDonationDate': null,
+              });
+              
+              // Update the user model to reflect this
+              final updatedUser = currentUser.copyWith(
+                neverDonatedBefore: true,
+                lastDonationDate: null,
+              );
+              await appProvider.updateUserProfile(updatedUser);
+              
+              debugPrint('Updated user profile to indicate never donated before');
+            } else {
+              // Convert string date to timestamp
+              final lastDonationDate = DateTime.parse(_lastDonationController.text);
+              
+              // Update the user document
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(userId)
+                  .update({
+                'lastDonationDate': lastDonationDate.millisecondsSinceEpoch,
+                'neverDonatedBefore': false,
+              });
+              
+              // Also update the user model in the app provider
+              final updatedUser = currentUser.copyWith(
+                lastDonationDate: lastDonationDate,
+                neverDonatedBefore: false,
+              );
+              await appProvider.updateUserProfile(updatedUser);
+              
+              debugPrint('Updated lastDonationDate in users collection: ${lastDonationDate.toIso8601String()}');
+            }
           } catch (e) {
             debugPrint('Error updating lastDonationDate in users collection: $e');
             // Continue with the rest of the function even if this update fails

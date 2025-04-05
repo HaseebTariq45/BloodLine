@@ -9,7 +9,8 @@ class UserModel {
   final String address;
   final String imageUrl;
   final bool isAvailableToDonate;
-  final DateTime lastDonationDate;
+  final DateTime? lastDonationDate;
+  final bool neverDonatedBefore;
   final UserLocationModel? location;
   final String city;
 
@@ -23,11 +24,10 @@ class UserModel {
     this.imageUrl = '',
     this.isAvailableToDonate = true,
     DateTime? lastDonationDate,
+    this.neverDonatedBefore = true,
     this.location,
     this.city = '',
-  }) : lastDonationDate =
-           lastDonationDate ??
-           DateTime.now().subtract(const Duration(days: 90));
+  }) : lastDonationDate = neverDonatedBefore ? null : (lastDonationDate ?? DateTime.now().subtract(const Duration(days: 90)));
 
   factory UserModel.dummy() {
     return UserModel(
@@ -46,7 +46,7 @@ class UserModel {
 
   // Days until next donation eligibility (typical 90 days between donations)
   int get daysUntilNextDonation {
-    final nextDonationDate = lastDonationDate.add(const Duration(days: 90));
+    final nextDonationDate = lastDonationDate?.add(const Duration(days: 90)) ?? DateTime.now();
     final daysRemaining = nextDonationDate.difference(DateTime.now()).inDays;
     return daysRemaining > 0 ? daysRemaining : 0;
   }
@@ -67,6 +67,7 @@ class UserModel {
     String? imageUrl,
     bool? isAvailableToDonate,
     DateTime? lastDonationDate,
+    bool? neverDonatedBefore,
     UserLocationModel? location,
     String? city,
   }) {
@@ -80,6 +81,7 @@ class UserModel {
       imageUrl: imageUrl ?? this.imageUrl,
       isAvailableToDonate: isAvailableToDonate ?? this.isAvailableToDonate,
       lastDonationDate: lastDonationDate ?? this.lastDonationDate,
+      neverDonatedBefore: neverDonatedBefore ?? this.neverDonatedBefore,
       location: location ?? this.location,
       city: city ?? this.city,
     );
@@ -90,6 +92,6 @@ class UserModel {
   String toString() {
     return 'UserModel{id: $id, name: $name, email: $email, phoneNumber: $phoneNumber, bloodType: $bloodType, '
         'address: $address, city: $city, isAvailableToDonate: $isAvailableToDonate, '
-        'lastDonationDate: ${lastDonationDate.toIso8601String()}}';
+        'lastDonationDate: ${lastDonationDate?.toIso8601String()}, neverDonatedBefore: $neverDonatedBefore}';
   }
 }

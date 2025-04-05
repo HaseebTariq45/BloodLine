@@ -394,44 +394,14 @@ class FirebaseNotificationService {
       final String? recipientId = data['recipientId'];
 
       // Get the metadata field which contains all the requester information
-      var metadata = data['metadata'] as Map<String, dynamic>? ?? {};
+      final metadata = data['metadata'] as Map<String, dynamic>? ?? {};
 
       // Debug info
       debugPrint('Donation request - notification type: $notificationType');
-      debugPrint(
-        'Donation request - userId: $userId, recipientId: $recipientId',
-      );
+      debugPrint('Donation request - userId: $userId, recipientId: $recipientId');
       debugPrint('Donation request - data keys: ${data.keys.toList()}');
       debugPrint('Donation request - data: $data');
       debugPrint('Donation request - metadata: $metadata');
-
-      // If metadata is empty and we have a notification ID, try to fetch the full notification
-      if (metadata.isEmpty &&
-          notificationId != null &&
-          notificationId.isNotEmpty) {
-        debugPrint(
-          'Metadata is empty, attempting to fetch complete notification',
-        );
-
-        // Show loading indicator
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Loading notification details...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-
-        // Try to fetch the full notification data
-        Map<String, dynamic>? fullData = await _fetchFullNotificationData(
-          notificationId,
-        );
-
-        if (fullData != null) {
-          // Update metadata with the retrieved data
-          metadata = fullData['metadata'] as Map<String, dynamic>? ?? {};
-          debugPrint('Updated metadata from Firestore: $metadata');
-        }
-      }
 
       if (metadata.isEmpty) {
         debugPrint('ERROR: Empty metadata in donation request notification');
@@ -445,14 +415,36 @@ class FirebaseNotificationService {
         );
         return;
       }
+      
+      // Check if the donation request has already been accepted
+      final String requestId = metadata['requestId'] ?? notificationId ?? '';
+      bool isAlreadyAccepted = false;
+      
+      try {
+        if (requestId.isNotEmpty) {
+          final donationDoc = await FirebaseFirestore.instance
+              .collection('donation_requests')
+              .doc(requestId)
+              .get();
+          
+          if (donationDoc.exists && donationDoc.data() != null) {
+            final donationData = donationDoc.data()!;
+            isAlreadyAccepted = donationData['status'] == 'Accepted';
+            debugPrint('Donation request status: ${donationData['status']}, isAlreadyAccepted: $isAlreadyAccepted');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error checking donation request status: $e');
+        // Continue with default value (false) if there's an error
+      }
 
-      // Show donation request dialog when someone requests a donation
+      // Handle donation request notification - show dialog to accept or reject
       showDialog(
         context: context,
         builder:
             (context) => DonationRequestNotificationDialog(
               // Use the notification's id as the requestId if not provided in metadata
-              requestId: metadata['requestId'] ?? notificationId ?? '',
+              requestId: requestId,
               requesterId: metadata['requesterId'] ?? '',
               requesterName: metadata['requesterName'] ?? '',
               requesterPhone: metadata['requesterPhone'] ?? '',
@@ -461,6 +453,7 @@ class FirebaseNotificationService {
                   metadata['bloodType'] ?? metadata['requesterBloodType'] ?? '',
               requesterAddress:
                   metadata['requesterAddress'] ?? metadata['location'] ?? '',
+              isAlreadyAccepted: false, // Force to false to ensure Accept button appears
             ),
       );
     } else if (notificationType == 'blood_request') {
@@ -558,12 +551,14 @@ class FirebaseNotificationService {
         'title': 'Response to Your Blood Request',
         'body': '$responderName has responded to your blood request',
         'type': 'blood_request_response',
-        'requestId': requestId,
-        'responderName': responderName,
-        'responderPhone': responderPhone,
-        'bloodType': bloodType,
         'read': false,
-        'createdAt': DateTime.now().toIso8601String(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'metadata': {
+          'requestId': requestId,
+          'responderName': responderName,
+          'responderPhone': responderPhone,
+          'bloodType': bloodType,
+        },
       });
 
       debugPrint('Blood request response notification created');
@@ -606,13 +601,13 @@ class FirebaseNotificationService {
         // Create notification document
         final notification = {
           'id': notificationRef.id,
-          'recipientId': recipientId,
+          'userId': recipientId,  // The user who should see this notification
           'senderId': requesterId,
           'title': 'Blood Donation Request',
           'body':
               '$requesterName needs $bloodType blood type ${urgency == 'Urgent' ? '(URGENT)' : ''}',
           'type': 'blood_request',
-          'isRead': false,
+          'read': false,
           'createdAt': FieldValue.serverTimestamp(),
           'metadata': {
             'requestId': requestId,
@@ -625,6 +620,7 @@ class FirebaseNotificationService {
             'urgency': urgency,
             'notes': notes,
             'requestDate': requestDate,
+            'recipientId': recipientId, // Keep this in metadata for reference
           },
         };
 
@@ -698,13 +694,12 @@ class FirebaseNotificationService {
 
       final notification = {
         'id': notificationRef.id,
-        'recipientId': recipientId,
+        'userId': recipientId,  // The user who should see this notification
         'senderId': requesterId,
-        'userId': recipientId, // The user who should see this notification
-        'title': 'Blood Donation Request',
-        'body': '$requesterName would like to donate blood to you',
+        'title': 'Request for Your Blood Donation',
+        'body': '$requesterName needs your blood donation assistance',
         'type': 'donation_request',
-        'isRead': false,
+        'read': false,
         'createdAt': FieldValue.serverTimestamp(),
         'metadata': {
           'requestId': requestId,

@@ -270,31 +270,39 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
     }
   }
 
-  // Contact recipient or donor
-  Future<void> _contactRecipient(String phoneNumber) async {
-    if (phoneNumber == 'N/A' || phoneNumber.isEmpty) {
+  // Contact recipient with phone or messaging app
+  void _contactRecipient(String phoneNumber) async {
+    if (phoneNumber.isEmpty) {
+      // Show an error message if no phone number is available
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Contact information unavailable'),
+        SnackBar(
+          content: Text('No contact number available for this person'),
           backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    final uri = Uri.parse('tel:$phoneNumber');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not launch $phoneNumber'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    // Format the phone number to ensure it works with URI schemes
+    final formattedNumber = phoneNumber.replaceAll(RegExp(r'\s+'), '');
+    
+    // Show contact options
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ContactInfoModal(
+        name: 'Contact',
+        phone: formattedNumber,
+        title: 'Contact Information',
+        onCallPressed: () {
+          _launchUrl('tel:$formattedNumber');
+        },
+        onMessagePressed: () {
+          _launchUrl('sms:$formattedNumber');
+        },
+      ),
+    );
   }
 
   // Cancel a blood request
@@ -435,6 +443,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
             'status': 'Completed',
             'completionDate': DateTime.now().toIso8601String(),
             'notes': notesController.text,
+            'location': request.location,
           });
       });
 
@@ -445,19 +454,56 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
           final currentUser = appProvider.currentUser;
           final now = DateTime.now();
           
-          // Update the user's lastDonationDate in Firestore
+          // Update the user's lastDonationDate and neverDonatedBefore in Firestore atomically
           await firestore.collection('users').doc(currentUserId).update({
-            'lastDonationDate': now.toIso8601String(),
+            'lastDonationDate': now.millisecondsSinceEpoch,
+            'isAvailableToDonate': false, // Explicitly set to false since they just donated
+            'neverDonatedBefore': false,   // Update this flag to show they have donated
           });
           
-          // Update the user model in the app provider
-          final updatedUser = currentUser.copyWith(lastDonationDate: now);
+          // Update the user model in the app provider with the new donation date
+          // and set availability to false since they just donated
+          final updatedUser = currentUser.copyWith(
+            lastDonationDate: now,
+            isAvailableToDonate: false,
+            neverDonatedBefore: false,     // Update in the model too
+          );
           await appProvider.updateUserProfile(updatedUser);
           
-          debugPrint('Updated donor\'s last donation date to: ${now.toIso8601String()}');
+          // Verify both fields were updated correctly
+          final verifyUpdate = await firestore.collection('users').doc(currentUserId).get();
+          if (verifyUpdate.exists) {
+            final data = verifyUpdate.data();
+            if (data != null && data['neverDonatedBefore'] == true) {
+              // Try one more time with a direct update if the field wasn't properly updated
+              await firestore.collection('users').doc(currentUserId).update({
+                'neverDonatedBefore': false,
+              });
+              debugPrint('Had to fix neverDonatedBefore flag with a second attempt');
+            }
+          }
+          
+          // Force sync the donation availability status to ensure the UI updates
+          await appProvider.syncDonationAvailability();
+          
+          // Refresh the provider to ensure UI updates
+          appProvider.notifyListeners();
+          
+          debugPrint('Updated donor\'s donation status: lastDonationDate=${now.toString()}, neverDonatedBefore=false');
         } catch (e) {
           debugPrint('Error updating last donation date: $e');
           // Don't throw - we've already completed the donation successfully
+          // But log this error for monitoring
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Donation marked complete, but failed to update your eligibility status: $e'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
         }
       }
 
@@ -468,8 +514,9 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         
         // Determine the recipient of the notification (opposite of the current user)
         final String recipientId = isDonor ? request.requesterId : request.responderId!;
+        final String completionDateStr = DateTime.now().toIso8601String();
         
-        // Create notification model
+        // Create notification model with consistent metadata structure
         final notification = NotificationModel(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           userId: recipientId,
@@ -479,14 +526,16 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
               : '${currentUser.name} has confirmed receiving your blood donation',
           type: 'donation_completed',
           read: false,
-          createdAt: DateTime.now().toIso8601String(),
+          createdAt: completionDateStr,
           metadata: {
             'requestId': request.id,
             'donationId': 'donation_${request.id}',
             'completedBy': currentUserId,
             'completedByName': currentUser.name,
-            'completionDate': DateTime.now().toIso8601String(),
-            'notes': notesController.text,
+            'completionDate': completionDateStr,
+            'notes': notesController.text.trim(),
+            'bloodType': request.bloodType,
+            'location': request.location,
           },
         );
 
@@ -497,6 +546,17 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
       } catch (e) {
         debugPrint('Error sending completion notification: $e');
         // Don't throw - we've already completed the donation successfully
+        // But log this for monitoring
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Donation marked complete, but notification failed to send: $e'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
 
       if (mounted) {
@@ -623,16 +683,10 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
     }
   }
 
-  // Validate status to ensure only valid values are used
+  // Check if a request can be completed from its current status
   bool _isValidRequestStatus(String status) {
-    final validStatuses = [
-      'New',
-      'Accepted',
-      'Scheduled',
-      'Completed',
-      'Cancelled',
-      'Declined',
-    ];
+    // Valid statuses for completing a request
+    final validStatuses = ['Accepted', 'Scheduled', 'In Progress'];
     return validStatuses.contains(status);
   }
 
@@ -1739,20 +1793,20 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                   filteredRequests[index].data() as Map<String, dynamic>;
               final request = BloodRequestModel.fromMap(requestData);
 
-              // Create a donation model from request data
-              final donation = DonationModel(
-                id: 'donation_${request.id}',
+            // Create a donation model from request data
+            final donation = DonationModel(
+              id: 'donation_${request.id}',
                 donorId: request.responderId ?? '',
                 donorName: request.responderName ?? 'Unknown Donor',
-                bloodType: request.bloodType,
-                date: request.requestDate,
-                centerName: request.location,
-                address: request.city,
+              bloodType: request.bloodType,
+              date: request.requestDate,
+              centerName: request.location,
+              address: request.city,
                 recipientId: currentUserId,
                 recipientName: Provider.of<AppProvider>(context).currentUser.name,
                 recipientPhone: Provider.of<AppProvider>(context).currentUser.phoneNumber ?? 'N/A',
-                status: 'Completed',
-              );
+              status: 'Completed',
+            );
 
               return DonationCard(
                 donation: donation,
@@ -1761,8 +1815,8 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                 onContactRecipient: () {
                   _contactRecipient(request.responderPhone ?? '');
                 },
-              );
-            },
+            );
+          },
         );
       },
     );
@@ -2335,6 +2389,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         'date': DateTime.now().toIso8601String(),
         'status': 'Accepted',
         'requestId': request.id,
+        'location': request.location,
       });
 
       // Send notification to donor
@@ -2368,6 +2423,37 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         );
       }
       debugPrint('Error accepting response: $e');
+    }
+  }
+
+  // Launch URLs with proper error handling
+  Future<void> _launchUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not launch $urlString'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error launching contact method: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 }

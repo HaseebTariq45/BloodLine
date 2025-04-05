@@ -31,8 +31,9 @@ class FirebaseUserService {
     try {
       debugPrint('Saving user data to Firestore for user ID: ${user.id}');
       debugPrint('User data being saved: ${user.toString()}');
-
-      await _firestore.collection(_collection).doc(user.id).set({
+      
+      // Create a map of all user data
+      final Map<String, dynamic> userData = {
         'name': user.name,
         'email': user.email,
         'phoneNumber': user.phoneNumber,
@@ -41,9 +42,19 @@ class FirebaseUserService {
         'city': user.city,
         'imageUrl': user.imageUrl,
         'isAvailableToDonate': user.isAvailableToDonate,
-        'lastDonationDate': user.lastDonationDate.millisecondsSinceEpoch,
+        'neverDonatedBefore': user.neverDonatedBefore,
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      // Only set lastDonationDate if it's not null and user has donated before
+      if (user.lastDonationDate != null && !user.neverDonatedBefore) {
+        userData['lastDonationDate'] = user.lastDonationDate!.millisecondsSinceEpoch;
+      } else {
+        // Explicitly set to null when the user has never donated
+        userData['lastDonationDate'] = null;
+      }
+
+      await _firestore.collection(_collection).doc(user.id).set(userData);
 
       debugPrint('User data successfully saved to Firestore');
     } catch (e) {
@@ -80,7 +91,8 @@ class FirebaseUserService {
                   ? DateTime.fromMillisecondsSinceEpoch(
                     data['lastDonationDate'],
                   )
-                  : DateTime.now().subtract(const Duration(days: 90)),
+                  : null,
+          neverDonatedBefore: data['neverDonatedBefore'] ?? true,
         );
       }
 
@@ -95,7 +107,8 @@ class FirebaseUserService {
   // Update user data in Firestore
   Future<void> updateUserData(UserModel user) async {
     try {
-      await _firestore.collection(_collection).doc(user.id).update({
+      // Create a map of all user data to update
+      final Map<String, dynamic> userData = {
         'name': user.name,
         'phoneNumber': user.phoneNumber,
         'bloodType': user.bloodType,
@@ -103,10 +116,23 @@ class FirebaseUserService {
         'city': user.city,
         'imageUrl': user.imageUrl,
         'isAvailableToDonate': user.isAvailableToDonate,
-        'lastDonationDate': user.lastDonationDate.millisecondsSinceEpoch,
+        'neverDonatedBefore': user.neverDonatedBefore,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      // Only set lastDonationDate if it's not null and user has donated before
+      if (user.lastDonationDate != null && !user.neverDonatedBefore) {
+        userData['lastDonationDate'] = user.lastDonationDate!.millisecondsSinceEpoch;
+      } else {
+        // Explicitly set to null when the user has never donated
+        userData['lastDonationDate'] = null;
+      }
+      
+      await _firestore.collection(_collection).doc(user.id).update(userData);
+      
+      debugPrint('User data successfully updated in Firestore');
     } catch (e) {
+      debugPrint('Error updating user data in Firestore: $e');
       rethrow;
     }
   }
@@ -137,7 +163,8 @@ class FirebaseUserService {
                   ? DateTime.fromMillisecondsSinceEpoch(
                     data['lastDonationDate'],
                   )
-                  : DateTime.now().subtract(const Duration(days: 90)),
+                  : null,
+          neverDonatedBefore: data['neverDonatedBefore'] ?? true,
         );
       }).toList();
     } catch (e) {
@@ -172,7 +199,8 @@ class FirebaseUserService {
                   ? DateTime.fromMillisecondsSinceEpoch(
                     data['lastDonationDate'],
                   )
-                  : DateTime.now().subtract(const Duration(days: 90)),
+                  : null,
+          neverDonatedBefore: data['neverDonatedBefore'] ?? true,
         );
       }).toList();
     } catch (e) {
