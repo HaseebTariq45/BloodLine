@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/custom_app_bar.dart';
+import '../services/local_notification_service.dart';
+import '../services/service_locator.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -49,6 +51,8 @@ class _NotificationSettingsScreenState
               _buildNotificationTypeToggles(appProvider),
               const SizedBox(height: 24),
               _buildTestNotificationButton(appProvider),
+              const SizedBox(height: 16),
+              _buildTestLocalNotificationButton(appProvider),
               const SizedBox(height: 16),
               _buildSyncNotificationsButton(appProvider),
             ],
@@ -255,6 +259,92 @@ class _NotificationSettingsScreenState
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestLocalNotificationButton(AppProvider appProvider) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: Colors.green.withOpacity(0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notifications_active, color: Colors.green),
+                const SizedBox(width: 12),
+                Text(
+                  'Test Local Notification',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Send a test local notification to your device. This will appear in your notification bar.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.send, size: 18),
+                label: const Text('Send Local Notification'),
+                onPressed: appProvider.notificationsEnabled
+                    ? () async {
+                        // Show feedback
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Sending local notification...'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                        
+                        // Get the local notification service
+                        final localNotificationService = serviceLocator.localNotificationService;
+                        
+                        // Send a test notification
+                        await localNotificationService.showNotification(
+                          title: 'BloodLine Test Notification',
+                          body: 'This is a test local notification from BloodLine app!',
+                          importance: NotificationImportance.high,
+                        );
+                        
+                        // Show success message
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Local notification sent successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey[300],
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

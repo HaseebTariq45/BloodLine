@@ -9,6 +9,7 @@ import 'providers/app_provider.dart';
 import 'services/network_tracker_service.dart';
 import 'services/service_locator.dart';
 import 'services/version_service.dart';
+import 'services/local_notification_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -100,6 +101,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final FirebaseNotificationService _notificationService =
       FirebaseNotificationService();
+  final LocalNotificationService _localNotificationService =
+      LocalNotificationService();
 
   @override
   void initState() {
@@ -108,7 +111,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     debugPrint('\n\n🔄🔄🔄 BLOODLINE APP STARTING 🔄🔄🔄');
     
-    // Initialize notification service after build is complete
+    // Initialize notification services after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
       debugPrint('🔄 [AppLifecycle] UI rendered, initializing services...');
       _initializeNotifications().then((_) {
@@ -143,7 +146,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _initializeNotifications() async {
     debugPrint('🔄 [Notifications] Initializing notification services');
+    // Initialize Firebase notifications
     await _notificationService.initialize(context);
+    // Initialize local notifications
+    await _localNotificationService.initialize(context);
     debugPrint('🔄 [Notifications] Notification services initialized successfully');
   }
 

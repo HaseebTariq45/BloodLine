@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import '../providers/app_provider.dart';
 import 'network_tracker_service.dart';
 import 'firebase_notification_service.dart';
+import 'local_notification_service.dart';
 import 'version_service.dart';
 
 /// A simple service locator to access services throughout the app
@@ -14,11 +15,13 @@ class ServiceLocator {
   // Service instances
   late NetworkTrackerService networkTracker;
   late VersionService versionService;
+  late LocalNotificationService localNotificationService;
   
   // Initialize services
   void initialize(AppProvider appProvider) {
     networkTracker = NetworkTrackerService(appProvider);
     versionService = VersionService();
+    localNotificationService = LocalNotificationService();
     
     // Initialize GetIt service locator
     setupServiceLocator(appProvider);
@@ -37,5 +40,6 @@ void setupServiceLocator([AppProvider? appProvider]) {
   }
   
   serviceLocatorGetIt.registerLazySingleton<FirebaseNotificationService>(() => FirebaseNotificationService());
+  serviceLocatorGetIt.registerLazySingleton<LocalNotificationService>(() => LocalNotificationService());
   serviceLocatorGetIt.registerLazySingleton<VersionService>(() => VersionService());
 } 
