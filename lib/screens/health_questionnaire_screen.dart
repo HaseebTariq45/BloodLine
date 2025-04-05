@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/services.dart'; // For haptic feedback
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../widgets/temp_list_field.dart'; // Import the temporary list field widget
 
 // Custom CheckMark painter for animating the checkmark
 class CheckMarkPainter extends CustomPainter {
@@ -90,6 +91,17 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
   final _lastDonationController = TextEditingController();
   final _medicationsController = TextEditingController();
   final _allergiesController = TextEditingController();
+  final _diseasesController = TextEditingController();
+  
+  // List to store medications and allergies
+  List<String> _medicationsList = [];
+  List<String> _allergiesList = [];
+  List<String> _diseasesList = [];
+  
+  // Controllers for adding new items
+  final _newMedicationController = TextEditingController();
+  final _newAllergyController = TextEditingController();
+  final _newDiseaseController = TextEditingController();
 
   // Form values
   String _gender = 'Male';
@@ -155,6 +167,10 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
     _lastDonationController.dispose();
     _medicationsController.dispose();
     _allergiesController.dispose();
+    _diseasesController.dispose();
+    _newMedicationController.dispose();
+    _newAllergyController.dispose();
+    _newDiseaseController.dispose();
     _successAnimationController.dispose();
     _errorAnimationController.dispose();
     _scrollAnimationController.dispose();
@@ -292,14 +308,14 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           : SingleChildScrollView(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.isPostSignup)
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (widget.isPostSignup)
                         FadeTransition(
                           opacity: CurvedAnimation(
                             parent: _successAnimationController,
@@ -390,7 +406,7 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                             ),
                     ),
                   ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
                       FadeTransition(
                         opacity: CurvedAnimation(
                           parent: _successAnimationController,
@@ -595,6 +611,19 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                           });
                         },
                       ),
+                      if (_hasDisease) ...[
+                        const SizedBox(height: 16),
+                        buildListField(
+                          context: context,
+                          title: 'Chronic Diseases',
+                          hintText: 'Add a disease or condition',
+                          items: _diseasesList,
+                          controller: _newDiseaseController,
+                          onAdd: _addDisease,
+                          onRemove: _removeDisease,
+                          itemIcon: Icons.health_and_safety,
+                        ),
+                      ],
                       _buildSwitchField(
                         title: 'Current Medications',
                         subtitle: 'Taking any medications',
@@ -607,18 +636,15 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                       ),
                       if (_hasMedication) ...[
                         const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _medicationsController,
-                          label: 'List your medications',
-                          prefixIcon: Icons.medication,
-                          keyboardType: TextInputType.text,
-                          maxLines: 3,
-                          validator: (value) {
-                            if (_hasMedication && (value == null || value.isEmpty)) {
-                              return 'Please specify your medications';
-                            }
-                            return null;
-                          },
+                        buildListField(
+                          context: context,
+                          title: 'Medications',
+                          hintText: 'Add a medication',
+                          items: _medicationsList,
+                          controller: _newMedicationController,
+                          onAdd: _addMedication,
+                          onRemove: _removeMedication,
+                          itemIcon: Icons.medication,
                         ),
                       ],
                       _buildSwitchField(
@@ -633,18 +659,15 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                       ),
                       if (_hasAllergies) ...[
                         const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _allergiesController,
-                          label: 'List your allergies',
-                          prefixIcon: Icons.warning_amber,
-                          keyboardType: TextInputType.text,
-                          maxLines: 3,
-                          validator: (value) {
-                            if (_hasAllergies && (value == null || value.isEmpty)) {
-                              return 'Please specify your allergies';
-                            }
-                            return null;
-                          },
+                        buildListField(
+                          context: context,
+                          title: 'Allergies',
+                          hintText: 'Add an allergy',
+                          items: _allergiesList,
+                          controller: _newAllergyController,
+                          onAdd: _addAllergy,
+                          onRemove: _removeAllergy,
+                          itemIcon: Icons.warning_amber,
                         ),
                       ],
                     ],
@@ -1441,21 +1464,21 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _healthStatusColor.withOpacity(isDarkMode ? 0.2 : 0.1),
+            _healthStatusColor.withOpacity(isDarkMode ? 0.25 : 0.15),
             _healthStatusColor.withOpacity(isDarkMode ? 0.1 : 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: _healthStatusColor.withOpacity(isDarkMode ? 0.3 : 0.2),
+          color: _healthStatusColor.withOpacity(isDarkMode ? 0.4 : 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: _healthStatusColor.withOpacity(isDarkMode ? 0.1 : 0.05),
-            blurRadius: 12,
+            color: _healthStatusColor.withOpacity(isDarkMode ? 0.2 : 0.15),
+            blurRadius: 15,
             spreadRadius: 1,
-            offset: const Offset(0, 3),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -1465,54 +1488,62 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           // Status Header
           ClipRRect(
               borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(18),
-              topRight: Radius.circular(18),
+              topLeft: Radius.circular(22),
+              topRight: Radius.circular(22),
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    _healthStatusColor.withOpacity(isDarkMode ? 0.35 : 0.25),
-                    _healthStatusColor.withOpacity(isDarkMode ? 0.25 : 0.15),
+                    _healthStatusColor.withOpacity(isDarkMode ? 0.45 : 0.35),
+                    _healthStatusColor.withOpacity(isDarkMode ? 0.30 : 0.20),
                   ],
               ),
             ),
             child: Row(
               children: [
                 Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDarkMode
                           ? Colors.black.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(12),
+                          : Colors.white.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: _healthStatusColor.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          color: _healthStatusColor.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                          spreadRadius: 1,
                         ),
                       ],
                   ),
                   child: Icon(
                     _getHealthStatusIcon(),
                     color: _healthStatusColor,
-                      size: 24,
+                      size: 28,
                   ),
                 ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
                 Text(
                   'Donation Eligibility',
                   style: TextStyle(
                     color: isDarkMode
                         ? Colors.white
                         : Colors.black87,
-                      fontSize: 18,
+                      fontSize: 20,
                     fontWeight: FontWeight.bold,
-                      letterSpacing: 0.2,
+                      letterSpacing: 0.3,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.1),
+                        offset: const Offset(0, 1),
+                        blurRadius: 2,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1521,32 +1552,52 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           ),
           // Status Content
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Current Status: ',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white.withOpacity(0.8)
-                            : Colors.black87.withOpacity(0.7),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: isDarkMode 
+                      ? Colors.black.withOpacity(0.15)
+                      : Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _healthStatusColor.withOpacity(isDarkMode ? 0.3 : 0.2),
+                      width: 1,
                     ),
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Current Status',
+                        style: TextStyle(
+                          color: isDarkMode
+                              ? Colors.white.withOpacity(0.7)
+                              : Colors.black87.withOpacity(0.6),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         decoration: BoxDecoration(
-                          color: _healthStatusColor.withOpacity(0.1),
+                          color: _healthStatusColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(30),
                           border: Border.all(
-                            color: _healthStatusColor.withOpacity(0.3),
-                            width: 1,
+                            color: _healthStatusColor.withOpacity(0.4),
+                            width: 1.5,
                           ),
                         ),
                         child: Row(
@@ -1555,65 +1606,97 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                             Icon(
                               _getHealthStatusIcon(),
                               color: _healthStatusColor,
-                              size: 16,
+                              size: 20,
                             ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                      _healthStatus,
-                      style: TextStyle(
-                        color: _healthStatusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (_nextDonationDate.isNotEmpty) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 20,
-                        color: isDarkMode
-                            ? Colors.white.withOpacity(0.6)
-                            : Colors.black87.withOpacity(0.5),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                  Text(
-                    'Next donation possible after:',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? Colors.white.withOpacity(0.7)
-                          : Colors.black87.withOpacity(0.6),
-                      fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                          const SizedBox(height: 6),
-                  Text(
-                    _nextDonationDate,
-                    style: TextStyle(
-                              color: isDarkMode ? Colors.white : Colors.black87,
-                      fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                              letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+                            const SizedBox(width: 8),
+                            Text(
+                              _healthStatus,
+                              style: TextStyle(
+                                color: _healthStatusColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                letterSpacing: 0.5,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
+                  ),
+                ),
+                
+                if (_nextDonationDate.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode 
+                        ? Colors.black.withOpacity(0.15)
+                        : Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDarkMode 
+                            ? Colors.grey.withOpacity(0.3)
+                            : Colors.grey.withOpacity(0.2),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 18,
+                              color: AppConstants.primaryColor.withOpacity(0.8),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Next Donation Date',
+                              style: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white.withOpacity(0.7)
+                                    : Colors.black87.withOpacity(0.6),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppConstants.primaryColor.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            _nextDonationDate,
+                            style: TextStyle(
+                              color: AppConstants.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -1668,6 +1751,10 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           _hasAllergies = data['hasAllergies'] ?? false;
           _medicationsController.text = data['medications'] ?? '';
           _allergiesController.text = data['allergies'] ?? '';
+          _diseasesController.text = data['diseases'] ?? '';
+          
+          // Parse the medications and allergies lists from strings
+          _parseSavedLists();
         }
         
         // If lastDonationDate is empty, try to get it from the user profile
@@ -1755,6 +1842,7 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
           'hasAllergies': _hasAllergies,
           'medications': _medicationsController.text,
           'allergies': _allergiesController.text,
+          'diseases': _diseasesController.text,
         });
 
         // Update lastDonationDate in users collection if it has been set
@@ -2225,5 +2313,134 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
         _saveHealthInfo();
       }
     });
+  }
+
+  // Add a medication to the list
+  void _addMedication() {
+    final medication = _newMedicationController.text.trim();
+    if (medication.isNotEmpty) {
+      setState(() {
+        _medicationsList.add(medication);
+        _newMedicationController.clear();
+        _hasUnsavedChanges = true;
+      });
+      
+      // Update the string representation for backward compatibility
+      _updateMedicationsController();
+      _updateHealthStatus();
+    }
+  }
+  
+  // Remove a medication from the list
+  void _removeMedication(int index) {
+    setState(() {
+      _medicationsList.removeAt(index);
+      _hasUnsavedChanges = true;
+    });
+    
+    // Update the string representation for backward compatibility
+    _updateMedicationsController();
+    _updateHealthStatus();
+  }
+  
+  // Add an allergy to the list
+  void _addAllergy() {
+    final allergy = _newAllergyController.text.trim();
+    if (allergy.isNotEmpty) {
+      setState(() {
+        _allergiesList.add(allergy);
+        _newAllergyController.clear();
+        _hasUnsavedChanges = true;
+      });
+      
+      // Update the string representation for backward compatibility
+      _updateAllergiesController();
+      _updateHealthStatus();
+    }
+  }
+  
+  // Remove an allergy from the list
+  void _removeAllergy(int index) {
+    setState(() {
+      _allergiesList.removeAt(index);
+      _hasUnsavedChanges = true;
+    });
+    
+    // Update the string representation for backward compatibility
+    _updateAllergiesController();
+    _updateHealthStatus();
+  }
+  
+  // Update medications controller for backward compatibility
+  void _updateMedicationsController() {
+    _medicationsController.text = _medicationsList.join(', ');
+  }
+  
+  // Update allergies controller for backward compatibility
+  void _updateAllergiesController() {
+    _allergiesController.text = _allergiesList.join(', ');
+  }
+  
+  // Parse stored values into lists
+  void _parseSavedLists() {
+    // Parse medications
+    if (_medicationsController.text.isNotEmpty) {
+      _medicationsList = _medicationsController.text
+          .split(',')
+          .map((med) => med.trim())
+          .where((med) => med.isNotEmpty)
+          .toList();
+    }
+    
+    // Parse allergies
+    if (_allergiesController.text.isNotEmpty) {
+      _allergiesList = _allergiesController.text
+          .split(',')
+          .map((allergy) => allergy.trim())
+          .where((allergy) => allergy.isNotEmpty)
+          .toList();
+    }
+    
+    // Parse diseases
+    if (_diseasesController.text.isNotEmpty) {
+      _diseasesList = _diseasesController.text
+          .split(',')
+          .map((disease) => disease.trim())
+          .where((disease) => disease.isNotEmpty)
+          .toList();
+    }
+  }
+  
+  // Add disease to the list
+  void _addDisease() {
+    final disease = _newDiseaseController.text.trim();
+    if (disease.isNotEmpty) {
+      setState(() {
+        _diseasesList.add(disease);
+        _newDiseaseController.clear();
+        _hasUnsavedChanges = true;
+      });
+      
+      // Update the string representation for backward compatibility
+      _updateDiseasesController();
+      _updateHealthStatus();
+    }
+  }
+  
+  // Remove disease from the list
+  void _removeDisease(int index) {
+    setState(() {
+      _diseasesList.removeAt(index);
+      _hasUnsavedChanges = true;
+    });
+    
+    // Update the string representation for backward compatibility
+    _updateDiseasesController();
+    _updateHealthStatus();
+  }
+  
+  // Update diseases controller for backward compatibility
+  void _updateDiseasesController() {
+    _diseasesController.text = _diseasesList.join(', ');
   }
 } 
