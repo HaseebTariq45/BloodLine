@@ -24,7 +24,7 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
   late Animation<double> _fadeAnimation;
   late TabController _tabController;
 
-  final List<String> _tabs = ['All', 'Urgent', 'Normal', 'My Requests'];
+  final List<String> _tabs = ['All', 'Urgent', 'Normal', 'Mine'];
   final List<IconData> _tabIcons = [
     Icons.format_list_bulleted,
     Icons.priority_high,
@@ -432,20 +432,16 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                     ),
                     tabs: [
                       Tab(
-                        icon: Icon(Icons.format_list_bulleted, size: 16),
                         text: 'All',
                       ),
                       Tab(
-                        icon: Icon(Icons.priority_high, size: 16),
                         text: 'Urgent',
                       ),
                       Tab(
-                        icon: Icon(Icons.schedule, size: 16),
                         text: 'Normal',
                       ),
                       Tab(
-                        icon: Icon(Icons.person, size: 16),
-                        text: 'My',
+                        text: 'Mine',
                       ),
                     ],
                   ),
@@ -462,7 +458,7 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
                 _buildRequestsList('All'),
                 _buildRequestsList('Urgent'),
                 _buildRequestsList('Normal'),
-                _buildRequestsList('My'),
+                _buildRequestsList('Mine'),
               ],
             ),
           ),
@@ -931,7 +927,7 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
         // Then apply tab-specific filters to the active requests only
         final appProvider = Provider.of<AppProvider>(context, listen: false);
         final filteredRequests = activeRequests.where((request) {
-          if (filter == 'My') {
+          if (filter == 'Mine') {
             return request.requesterId == appProvider.currentUser.id;
           } else if (filter == 'Urgent') {
             return request.urgency == 'Urgent';
