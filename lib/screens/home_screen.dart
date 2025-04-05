@@ -285,41 +285,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                         SizedBox(height: verticalPadding * 0.8),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            vertical: verticalPadding * 0.4,
-                            horizontal: horizontalPadding * 0.6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                color: Colors.white,
-                                size: smallIconSize,
-                              ),
-                              SizedBox(width: horizontalPadding * 0.4),
-                              Expanded(
-                                child: Text(
-                                  currentUser.daysUntilNextDonation > 0
-                                      ? 'Next donation in ${currentUser.daysUntilNextDonation} days'
-                                      : 'You are eligible to donate today!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: bodyTextFontSize,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: verticalPadding * 0.8),
                         // Eligibility Status
                         Container(
                           padding: EdgeInsets.symmetric(
