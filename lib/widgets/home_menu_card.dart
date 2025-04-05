@@ -334,40 +334,6 @@ class _HomeMenuCardState extends State<HomeMenuCard>
                           ],
                         ),
                       ),
-                      // "New" badge for a special feature (optional)
-                      if (widget.index == 1) // Just for the Request Blood card
-                        Positioned(
-                          top: isSmallScreen ? 8 : 10,
-                          right: isSmallScreen ? 8 : 10,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isSmallScreen ? 6 : 8,
-                              vertical: isSmallScreen ? 3 : 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(
-                                isSmallScreen ? 10 : 12,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  spreadRadius: 0,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              'NEW',
-                              style: TextStyle(
-                                color: _cardGradient.first,
-                                fontSize: badgeFontSize,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),

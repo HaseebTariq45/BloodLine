@@ -326,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? 'Eligible to Donate'
                                     : currentUser.isAvailableBasedOnDonationDate
                                         ? 'Set as Available'
-                                        : 'Wait ${currentUser.daysUntilNextDonation} Days',
+                                        : 'Wait For ${currentUser.daysUntilNextDonation} Days To Donate',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: bodyTextFontSize,
