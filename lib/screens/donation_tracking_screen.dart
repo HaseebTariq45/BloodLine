@@ -6,6 +6,7 @@ import '../constants/app_constants.dart';
 import '../providers/app_provider.dart';
 import '../models/blood_request_model.dart';
 import '../models/donation_model.dart';
+import '../models/notification_model.dart';
 import '../utils/theme_helper.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/empty_state_widget.dart';
@@ -436,6 +437,67 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
             'notes': notesController.text,
           });
       });
+
+      // 3. If the current user is the donor, update their last donation date
+      if (isDonor) {
+        try {
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          final currentUser = appProvider.currentUser;
+          final now = DateTime.now();
+          
+          // Update the user's lastDonationDate in Firestore
+          await firestore.collection('users').doc(currentUserId).update({
+            'lastDonationDate': now.toIso8601String(),
+          });
+          
+          // Update the user model in the app provider
+          final updatedUser = currentUser.copyWith(lastDonationDate: now);
+          await appProvider.updateUserProfile(updatedUser);
+          
+          debugPrint('Updated donor\'s last donation date to: ${now.toIso8601String()}');
+        } catch (e) {
+          debugPrint('Error updating last donation date: $e');
+          // Don't throw - we've already completed the donation successfully
+        }
+      }
+
+      // 4. Send notification to the other party
+      try {
+        final appProvider = Provider.of<AppProvider>(context, listen: false);
+        final currentUser = appProvider.currentUser;
+        
+        // Determine the recipient of the notification (opposite of the current user)
+        final String recipientId = isDonor ? request.requesterId : request.responderId!;
+        
+        // Create notification model
+        final notification = NotificationModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: recipientId,
+          title: 'Blood Donation Completed',
+          body: isDonor 
+              ? '${currentUser.name} has marked your blood donation request as complete'
+              : '${currentUser.name} has confirmed receiving your blood donation',
+          type: 'donation_completed',
+          read: false,
+          createdAt: DateTime.now().toIso8601String(),
+          metadata: {
+            'requestId': request.id,
+            'donationId': 'donation_${request.id}',
+            'completedBy': currentUserId,
+            'completedByName': currentUser.name,
+            'completionDate': DateTime.now().toIso8601String(),
+            'notes': notesController.text,
+          },
+        );
+
+        // Send notification
+        await appProvider.sendNotification(notification);
+        
+        debugPrint('Sent donation completion notification to user: $recipientId');
+      } catch (e) {
+        debugPrint('Error sending completion notification: $e');
+        // Don't throw - we've already completed the donation successfully
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1618,7 +1680,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
       stream:
           FirebaseFirestore.instance
               .collection('blood_requests')
-              .where('responderId', isEqualTo: currentUserId)
+              .where('requesterId', isEqualTo: currentUserId)
               .where('status', isEqualTo: 'Completed')
               .orderBy('requestDate', descending: true)
               .snapshots(),
@@ -1629,7 +1691,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
 
         if (snapshot.hasError) {
           debugPrint(
-            'DonationTrackingScreen - Completed donations - Error: ${snapshot.error}',
+            'DonationTrackingScreen - Completed requests - Error: ${snapshot.error}',
           );
           return Center(child: Text('Error: ${snapshot.error}'));
         }
@@ -1645,7 +1707,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                   final searchableFields = [
                     data['bloodType']?.toString().toLowerCase() ?? '',
                     data['location']?.toString().toLowerCase() ?? '',
-                    data['requesterName']?.toString().toLowerCase() ?? '',
+                    data['responderName']?.toString().toLowerCase() ?? '',
                   ];
                   return searchableFields.any(
                     (field) => field.contains(_searchQuery.toLowerCase()),
@@ -1654,15 +1716,15 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
 
         if (filteredRequests.isEmpty) {
           return EmptyStateWidget(
-            icon: Icons.history,
+            icon: Icons.check_circle,
             title:
                 _searchQuery.isNotEmpty
-                    ? 'No matching donations'
-                    : 'No completed donations',
+                    ? 'No matching requests'
+                    : 'No completed requests',
             message:
                 _searchQuery.isNotEmpty
                     ? 'Try changing your search criteria'
-                    : 'You haven\'t completed any blood donations yet.',
+                    : 'You don\'t have any completed blood requests yet.',
           );
         }
 
@@ -1677,79 +1739,30 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                   filteredRequests[index].data() as Map<String, dynamic>;
               final request = BloodRequestModel.fromMap(requestData);
 
-            // Create a donation model from request data
-            final donation = DonationModel(
-              id: 'donation_${request.id}',
-              donorId: currentUserId,
-              donorName: Provider.of<AppProvider>(context).currentUser.name,
-              bloodType: request.bloodType,
-              date: request.requestDate,
-              centerName: request.location,
-              address: request.city,
-              recipientId: request.requesterId,
-              recipientName: request.requesterName,
-              recipientPhone: request.contactNumber,
-              status: 'Completed',
-            );
+              // Create a donation model from request data
+              final donation = DonationModel(
+                id: 'donation_${request.id}',
+                donorId: request.responderId ?? '',
+                donorName: request.responderName ?? 'Unknown Donor',
+                bloodType: request.bloodType,
+                date: request.requestDate,
+                centerName: request.location,
+                address: request.city,
+                recipientId: currentUserId,
+                recipientName: Provider.of<AppProvider>(context).currentUser.name,
+                recipientPhone: Provider.of<AppProvider>(context).currentUser.phoneNumber ?? 'N/A',
+                status: 'Completed',
+              );
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              elevation: 2,
-              shadowColor: context.isDarkMode ? Colors.black12 : Colors.grey.withOpacity(0.07),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                    colors: context.isDarkMode
-                        ? [
-                            context.cardColor,
-                            Colors.black.withOpacity(0.08),
-                          ]
-                        : [
-                            Colors.white,
-                            Colors.grey.shade50,
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ListTile(
-                  title: Text(donation.centerName),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Blood Type: ${donation.bloodType}'),
-                      Text('Date: ${donation.formattedDate}'),
-                      Text('Status: ${donation.status}'),
-                      if (donation.status == 'Scheduled')
-                        Text(
-                          'Scheduled for recipient: ${donation.recipientName}',
-                        ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (donation.status == 'Accepted')
-                        IconButton(
-                          icon: Icon(Icons.calendar_today),
-                          onPressed: () => _scheduleDonation(donation),
-                          tooltip: 'Schedule',
-                        ),
-                      IconButton(
-                        icon: Icon(Icons.cancel, color: Colors.red),
-                        onPressed: () => _cancelDonation(donation.id),
-                        tooltip: 'Cancel',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+              return DonationCard(
+                donation: donation,
+                showActions: false,
+                isDonor: false,
+                onContactRecipient: () {
+                  _contactRecipient(request.responderPhone ?? '');
+                },
+              );
+            },
         );
       },
     );
