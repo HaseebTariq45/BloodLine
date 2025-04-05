@@ -633,7 +633,7 @@ class AboutUsScreen extends StatelessWidget {
                                 onTap:
                                     () => _launchSocialMedia(
                                       context,
-                                      'https://github.com/HaseebTariq45',
+                                      'https://github.com/HaseebTariq45/BloodLine',
                                       'HaseebTariq45',
                                       'github',
                                     ),
