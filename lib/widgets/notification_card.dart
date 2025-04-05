@@ -41,6 +41,14 @@ class NotificationCard extends StatelessWidget {
   static const String trackingInfoText = 'You can track the donation progress in the Donation Tracking screen.';
   static const String todayText = 'Today';
   static const String yesterdayText = 'Yesterday';
+  static const String errorParsingDate = 'Error parsing date';
+  static const String defaultNotificationTitle = 'Notification';
+  static const String deleteConfirmTitle = 'Delete Notification';
+  static const String deleteConfirmMessage = 'Are you sure you want to delete this notification?';
+  static const String cancelText = 'Cancel';
+  static const String deleteText = 'Delete';
+  static const String copyErrorMessage = 'Could not copy to clipboard';
+  static const String navigationErrorMessage = 'Could not navigate to the desired screen';
 
   const NotificationCard({
     Key? key,
@@ -52,101 +60,172 @@ class NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = _formatDate(DateTime.parse(notification.createdAt));
+    // Safe date parsing with fallback
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(notification.createdAt);
+    } catch (e) {
+      debugPrint('$errorParsingDate: $e');
+      parsedDate = DateTime.now();
+    }
+    final formattedDate = _formatDate(parsedDate);
+    
+    // Get notification color for consistent styling
+    final notificationColor = _getNotificationColor(notification.type);
 
-    return InkWell(
-      onTap: () {
-        // Handle notification tap based on type
-        switch (notification.type) {
-          case 'blood_request_response':
-            _handleBloodRequestResponse(context);
-            break;
-          case 'blood_request_accepted':
-            _handleBloodRequestAccepted(context);
-            break;
-          case 'donation_request':
-            _handleDonationRequest(context);
-            break;
-          default:
-            onTap?.call();
-            break;
-        }
-      },
-      child: Card(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    return Dismissible(
+      key: Key(notification.id),
+      direction: onDelete != null ? DismissDirection.endToStart : DismissDirection.none,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: Colors.red,
+        child: const Icon(
+          Icons.delete,
+          color: Colors.white,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _getNotificationColor(notification.type).withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _getNotificationIcon(notification.type),
-                      color: _getNotificationColor(notification.type),
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _getNotificationTitle(notification.type),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          notification.body,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          formattedDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!notification.read)
+      ),
+      confirmDismiss: (direction) async {
+        if (onDelete == null) return false;
+        return await _showDeleteConfirmationDialog(context);
+      },
+      onDismissed: (direction) {
+        if (onDelete != null) onDelete!();
+      },
+      child: InkWell(
+        onTap: () {
+          // Handle notification tap based on type
+          switch (notification.type) {
+            case 'blood_request_response':
+              _handleBloodRequestResponse(context);
+              break;
+            case 'blood_request_accepted':
+              _handleBloodRequestAccepted(context);
+              break;
+            case 'donation_request':
+              _handleDonationRequest(context);
+              break;
+            default:
+              onTap?.call();
+              break;
+          }
+        },
+        child: Card(
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Container(
-                      width: 10,
-                      height: 10,
+                      padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.red,
+                        color: notificationColor.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
+                      child: Icon(
+                        _getNotificationIcon(notification.type),
+                        color: notificationColor,
+                        size: 20,
+                      ),
                     ),
-                ],
-              ),
-            ],
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getNotificationTitle(notification.type),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            notification.body,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.grey[300] 
+                                  : Colors.grey[700],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            formattedDate,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.grey[400] 
+                                  : Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!notification.read)
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  // Show delete confirmation dialog
+  Future<bool> _showDeleteConfirmationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(deleteConfirmTitle),
+        content: Text(deleteConfirmMessage),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              cancelText,
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.grey[300] 
+                    : Colors.grey[700],
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              deleteText,
+              style: TextStyle(
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   // Handle blood request response notification
@@ -163,12 +242,17 @@ class NotificationCard extends StatelessWidget {
     final String? requesterPhone = metadata['requesterPhone'];
     final String? requestId = metadata['requestId'];
 
+    // Primary color for this notification type
+    final Color primaryColor = Colors.red.shade600;
+    final List<Color> gradientColors = [primaryColor, Colors.red.shade400];
+
     // Show a dialog with information about the request
     _showEnhancedDialog(
       context: context,
       title: bloodRequestResponseTitle,
       iconData: Icons.bloodtype,
-      gradientColors: [Colors.red.shade600, Colors.red.shade400],
+      gradientColors: gradientColors,
+      primaryColor: primaryColor,
       content: notification.body,
       infoRows: [
         if (requesterName != null) 
@@ -201,10 +285,10 @@ class NotificationCard extends StatelessWidget {
       infoMessage: 'Please respond to the request as soon as possible if you can help.',
       onViewDetails: () {
         Navigator.pop(context);
-        Navigator.pushNamed(
+        _safeNavigate(
           context, 
-          '/blood_requests',
-          arguments: {'requestId': requestId},
+          '/donation_tracking',
+          {'initialTab': 0, 'requestId': requestId},
         );
       },
     );
@@ -223,12 +307,17 @@ class NotificationCard extends StatelessWidget {
     final String? responderPhone = metadata['responderPhone'];
     final String? requestId = metadata['requestId'];
 
+    // Primary color for this notification type
+    final Color primaryColor = Colors.green.shade600;
+    final List<Color> gradientColors = [primaryColor, Colors.green.shade400];
+
     // Show dialog with information about the accepted request
     _showEnhancedDialog(
       context: context,
       title: requestAcceptedTitle,
       iconData: Icons.check_circle,
-      gradientColors: [Colors.green.shade600, Colors.green.shade400],
+      gradientColors: gradientColors,
+      primaryColor: primaryColor,
       content: notification.body,
       infoRows: [
         if (responderName != null) 
@@ -249,10 +338,10 @@ class NotificationCard extends StatelessWidget {
       infoMessage: trackingInfoText,
       onViewDetails: () {
         Navigator.pop(context);
-        Navigator.pushNamed(
+        _safeNavigate(
           context, 
           '/donation_tracking',
-          arguments: {'initialTab': 2},
+          {'initialTab': 2},
         );
       },
     );
@@ -284,12 +373,17 @@ class NotificationCard extends StatelessWidget {
     debugPrint('  requesterAddress: $requesterAddress');
     debugPrint('  requestId: $requestId');
 
+    // Primary color for this notification type
+    final Color primaryColor = Colors.blue.shade600;
+    final List<Color> gradientColors = [primaryColor, Colors.blue.shade400];
+
     // Show dialog with information about the request
     _showEnhancedDialog(
       context: context,
       title: donationRequestTitle,
       iconData: Icons.volunteer_activism,
-      gradientColors: [Colors.blue.shade600, Colors.blue.shade400],
+      gradientColors: gradientColors,
+      primaryColor: primaryColor,
       content: notification.body,
       infoRows: [
         if (requesterName != null) 
@@ -322,13 +416,56 @@ class NotificationCard extends StatelessWidget {
       infoMessage: 'You can review this donation request and respond accordingly.',
       onViewDetails: () {
         Navigator.pop(context);
-        Navigator.pushNamed(
+        _safeNavigate(
           context, 
           '/donation_tracking',
-          arguments: {'initialTab': 2, 'requestId': requestId},
+          {'initialTab': 2, 'requestId': requestId},
         );
       },
     );
+  }
+
+  // Safe navigation helper
+  void _safeNavigate(BuildContext context, String route, [Map<String, dynamic>? arguments]) {
+    try {
+      Navigator.pushNamed(
+        context, 
+        route,
+        arguments: arguments,
+      );
+    } catch (e) {
+      debugPrint('Navigation error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(navigationErrorMessage),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // Safe clipboard copy helper
+  Future<void> _safeCopy(BuildContext context, String text, Color color) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(copySuccessMessage),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: color,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Clipboard error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(copyErrorMessage),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Reusable enhanced dialog builder
@@ -337,11 +474,15 @@ class NotificationCard extends StatelessWidget {
     required String title,
     required IconData iconData,
     required List<Color> gradientColors,
+    required Color primaryColor,
     required String content,
     required List<InfoRowData> infoRows,
     required String infoMessage,
     required VoidCallback onViewDetails,
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final mediaQuery = MediaQuery.of(context);
+    
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -349,11 +490,15 @@ class NotificationCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
         ),
         elevation: 8,
-        insetPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: 20, 
+          vertical: mediaQuery.viewInsets.bottom > 0 ? 8 : 24
+        ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            maxHeight: mediaQuery.size.height * 0.8,
+            maxWidth: mediaQuery.size.width * 0.9,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -391,7 +536,7 @@ class NotificationCard extends StatelessWidget {
                         ),
                         child: Icon(
                           iconData,
-                          color: gradientColors[0],
+                          color: primaryColor,
                           size: 32,
                         ),
                       ),
@@ -420,6 +565,7 @@ class NotificationCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           height: 1.4,
+                          color: isDarkMode ? Colors.grey[300] : Colors.black87,
                         ),
                       ),
                       SizedBox(height: 24),
@@ -429,10 +575,10 @@ class NotificationCard extends StatelessWidget {
                         Container(
                           padding: EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey.shade50,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.grey.shade200,
+                              color: isDarkMode ? Colors.grey[700]! : Colors.grey.shade200,
                             ),
                           ),
                           child: Column(
@@ -444,16 +590,14 @@ class NotificationCard extends StatelessWidget {
                                     row.label,
                                     row.value,
                                     row.icon,
+                                    primaryColor: primaryColor,
+                                    isDarkMode: isDarkMode,
                                     showCopyButton: row.showCopyButton,
                                     onCopy: row.showCopyButton ? () {
-                                      Clipboard.setData(ClipboardData(text: row.copyValue ?? row.value));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(copySuccessMessage),
-                                          behavior: SnackBarBehavior.floating,
-                                          backgroundColor: gradientColors[0],
-                                          duration: Duration(seconds: 2),
-                                        ),
+                                      _safeCopy(
+                                        context, 
+                                        row.copyValue ?? row.value,
+                                        primaryColor,
                                       );
                                     } : null,
                                   ),
@@ -471,14 +615,14 @@ class NotificationCard extends StatelessWidget {
                           Icon(
                             Icons.info_outline,
                             size: 18,
-                            color: Colors.grey.shade600,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey.shade600,
                           ),
                           SizedBox(width: 8),
                           Flexible(
                             child: Text(
                               infoMessage,
                               style: TextStyle(
-                                color: Colors.grey.shade600,
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey.shade600,
                                 fontSize: 14,
                               ),
                             ),
@@ -499,12 +643,19 @@ class NotificationCard extends StatelessWidget {
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(color: Colors.grey.shade300),
+                            side: BorderSide(
+                              color: isDarkMode ? Colors.grey[600]! : Colors.grey.shade300,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: Text(closeText),
+                          child: Text(
+                            closeText,
+                            style: TextStyle(
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                            ),
+                          ),
                         ),
                       ),
                       SizedBox(width: 12),
@@ -512,7 +663,7 @@ class NotificationCard extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: onViewDetails,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: gradientColors[0],
+                            backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(vertical: 12),
                             elevation: 2,
@@ -588,7 +739,7 @@ class NotificationCard extends StatelessWidget {
       case 'donation_request':
         return donationRequestTitle;
       default:
-        return 'Notification';
+        return defaultNotificationTitle;
     }
   }
 
@@ -598,6 +749,8 @@ class NotificationCard extends StatelessWidget {
     String label,
     String value,
     IconData icon, {
+    required Color primaryColor,
+    required bool isDarkMode,
     bool showCopyButton = false,
     Function()? onCopy,
   }) {
@@ -607,13 +760,13 @@ class NotificationCard extends StatelessWidget {
         Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.green.shade50,
+            color: isDarkMode ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
             size: 18,
-            color: Colors.green.shade600,
+            color: primaryColor,
           ),
         ),
         SizedBox(width: 12),
@@ -625,7 +778,7 @@ class NotificationCard extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade700,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey.shade700,
                 ),
               ),
               Text(
@@ -633,6 +786,7 @@ class NotificationCard extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
+                  color: isDarkMode ? Colors.grey[300] : Colors.grey[900],
                 ),
               ),
             ],
@@ -643,7 +797,7 @@ class NotificationCard extends StatelessWidget {
             icon: Icon(
               Icons.copy,
               size: 18,
-              color: Colors.grey.shade600,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey.shade600,
             ),
             onPressed: onCopy,
             tooltip: 'Copy to clipboard',
