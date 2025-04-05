@@ -97,21 +97,94 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final FirebaseNotificationService _notificationService =
       FirebaseNotificationService();
 
   @override
   void initState() {
     super.initState();
+    // Register as an observer to detect app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('\n\n🔄🔄🔄 BLOODLINE APP STARTING 🔄🔄🔄');
+    
     // Initialize notification service after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeNotifications();
+      debugPrint('🔄 [AppLifecycle] UI rendered, initializing services...');
+      _initializeNotifications().then((_) {
+        // We will NOT sync notifications here on app startup anymore
+        // Instead, we'll rely on the auth state change listener and refreshUserData method
+        // to handle notification syncing after user authentication
+        debugPrint('🔄 [AppLifecycle] First UI frame complete, notification services initialized');
+        debugPrint('🔄 [AppLifecycle] Waiting for auth state to determine if sync is needed');
+      });
     });
   }
 
+  @override
+  void dispose() {
+    // Remove lifecycle observer when widget is disposed
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    debugPrint('\n🔄 [AppLifecycle] App state changed to: $state');
+    
+    // When app is resumed from background or inactive state, sync notifications
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 [AppLifecycle] App resumed from background, triggering notification sync');
+      _syncNotifications();
+    }
+  }
+
   Future<void> _initializeNotifications() async {
+    debugPrint('🔄 [Notifications] Initializing notification services');
     await _notificationService.initialize(context);
+    debugPrint('🔄 [Notifications] Notification services initialized successfully');
+  }
+
+  // Sync notifications when app is resumed
+  Future<void> _syncNotifications({bool isInitialSync = false}) async {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      
+      // Only refresh if user is logged in
+      if (appProvider.isLoggedIn) {
+        // Print debug information
+        if (isInitialSync) {
+          debugPrint('\n🔄🔄🔄 NOTIFICATION INITIAL SYNC STARTED 🔄🔄🔄');
+        } else {
+          debugPrint('\n🔄🔄🔄 NOTIFICATION RESUME SYNC STARTED 🔄🔄🔄');
+        }
+        
+        debugPrint('🔄 [NotificationSync] Step 1/3: Refreshing notifications from Firestore...');
+        // Refresh notifications from Firestore
+        await appProvider.refreshNotifications();
+        
+        debugPrint('🔄 [NotificationSync] Step 2/3: Checking notification settings...');
+        // Check notification settings
+        await appProvider.checkNotificationSettings();
+        
+        debugPrint('🔄 [NotificationSync] Step 3/3: Ensuring device token is up to date...');
+        // Ensure token is saved (in case it changed)
+        await _notificationService.saveDeviceToken();
+        
+        if (isInitialSync) {
+          debugPrint('✅✅✅ NOTIFICATION INITIAL SYNC COMPLETED ✅✅✅\n');
+        } else {
+          debugPrint('✅✅✅ NOTIFICATION RESUME SYNC COMPLETED ✅✅✅\n');
+        }
+      } else {
+        debugPrint('⚠️ [NotificationSync] Notification sync skipped: User not logged in');
+      }
+    } catch (e) {
+      debugPrint('❌❌❌ ERROR SYNCING NOTIFICATIONS: $e ❌❌❌');
+      // Handle errors silently to avoid app crashes
+    }
   }
 
   @override

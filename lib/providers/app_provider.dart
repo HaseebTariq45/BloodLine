@@ -267,19 +267,41 @@ class AppProvider extends ChangeNotifier {
       _authService.authStateChanges.listen((User? user) {
         if (user == null) {
           // User signed out
+          debugPrint('🔑 [AuthState] User signed out');
           _currentUser = null;
-          _emergencyContacts =
-              []; // Clear emergency contacts when user signs out
+          _emergencyContacts = []; // Clear emergency contacts when user signs out
         } else {
           // User signed in, get their data from Firestore
+          debugPrint('🔑 [AuthState] User signed in: ${user.uid}');
           ensureUserDataInFirestore().then((_) {
             _authService.getUserData().then((userData) {
               if (userData != null) {
+                debugPrint('🔑 [AuthState] User data loaded from Firestore: ${userData.name}');
                 _currentUser = userData;
 
                 // Load user-specific data
                 loadUserDonations();
                 loadEmergencyContacts();
+                
+                // Sync notifications when user signs in
+                debugPrint('🔑 [AuthState] Syncing notifications after sign in...');
+                
+                // Use Future to avoid blocking the auth state callback
+                Future.microtask(() async {
+                  // Refresh notifications from Firestore
+                  await refreshNotifications();
+                  
+                  // Check notification settings
+                  await checkNotificationSettings();
+                  
+                  // Ensure device token is saved for notifications
+                  final notificationService = FirebaseNotificationService();
+                  await notificationService.saveDeviceToken();
+                  
+                  debugPrint('✅ [AuthState] Notification sync completed after sign in');
+                });
+              } else {
+                debugPrint('⚠️ [AuthState] No user data found in Firestore after sign in');
               }
               notifyListeners();
             });
@@ -548,18 +570,41 @@ class AppProvider extends ChangeNotifier {
   Future<void> refreshUserData() async {
     try {
       if (_authService.isSignedIn) {
-        debugPrint('Refreshing user data from Firestore');
+        debugPrint('🔄 [UserData] Refreshing user data from Firestore');
+        final String? userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId != null) {
+          debugPrint('🔄 [UserData] Attempting to retrieve user data from Firestore for user ID: $userId');
+        }
 
         // Get the user data from Firestore
         UserModel? userData = await _authService.getUserData();
         if (userData != null) {
           _currentUser = userData;
+          debugPrint('✅ [UserData] User data refreshed successfully: ${userData.name}');
+          
+          // Now that we have confirmed the user is logged in and data is loaded,
+          // sync notifications (refresh from server, check settings, update token)
+          debugPrint('🔄 [UserData] User authenticated, syncing notifications...');
+          
+          // Refresh notifications from Firestore
+          await refreshNotifications();
+          
+          // Check notification settings
+          await checkNotificationSettings();
+          
+          // Ensure device token is saved for notifications
+          final notificationService = FirebaseNotificationService();
+          await notificationService.saveDeviceToken();
+          
+          debugPrint('✅ [UserData] Notification sync completed after user authentication');
+          
           notifyListeners();
-          debugPrint('User data refreshed successfully');
         }
+      } else {
+        debugPrint('⚠️ [UserData] Cannot refresh user data: No user is signed in');
       }
     } catch (e) {
-      debugPrint('Error refreshing user data: $e');
+      debugPrint('❌ [UserData] Error refreshing user data: $e');
     }
   }
 
@@ -876,7 +921,13 @@ class AppProvider extends ChangeNotifier {
 
   // Notification settings methods
   Future<void> checkNotificationSettings() async {
+    debugPrint('🔔 [NotificationSettings] Checking notification settings...');
+    
     final notificationService = NotificationService();
+    final previousNotificationsEnabled = _notificationsEnabled;
+    final previousEmailEnabled = _emailNotificationsEnabled;
+    final previousPushEnabled = _pushNotificationsEnabled;
+    
     _notificationsEnabled = await notificationService.areNotificationsEnabled();
     _emailNotificationsEnabled =
         await notificationService.areEmailNotificationsEnabled();
@@ -887,8 +938,22 @@ class AppProvider extends ChangeNotifier {
     _hasUnreadNotifications = _userNotifications.any(
       (notification) => !notification.read,
     );
-
-    notifyListeners();
+    
+    // Log changes or current state
+    debugPrint('🔔 [NotificationSettings] Notifications enabled: $_notificationsEnabled ${_notificationsEnabled != previousNotificationsEnabled ? "(changed)" : ""}');
+    debugPrint('🔔 [NotificationSettings] Email notifications: $_emailNotificationsEnabled ${_emailNotificationsEnabled != previousEmailEnabled ? "(changed)" : ""}');
+    debugPrint('🔔 [NotificationSettings] Push notifications: $_pushNotificationsEnabled ${_pushNotificationsEnabled != previousPushEnabled ? "(changed)" : ""}');
+    debugPrint('🔔 [NotificationSettings] Has unread notifications: $_hasUnreadNotifications');
+    
+    // Only notify listeners if there was an actual change
+    if (_notificationsEnabled != previousNotificationsEnabled ||
+        _emailNotificationsEnabled != previousEmailEnabled ||
+        _pushNotificationsEnabled != previousPushEnabled) {
+      debugPrint('🔔 [NotificationSettings] Notification settings changed, updating UI');
+      notifyListeners();
+    } else {
+      debugPrint('🔔 [NotificationSettings] No changes to notification settings');
+    }
   }
 
   Future<void> toggleNotifications(bool enabled) async {

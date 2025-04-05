@@ -114,21 +114,52 @@ class FirebaseNotificationService {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
+        debugPrint('📱 [TokenSync] Getting FCM token for user ${currentUser.uid}');
         final token = await _firebaseMessaging.getToken();
         if (token != null) {
-          await FirebaseFirestore.instance
+          debugPrint('📱 [TokenSync] FCM Token retrieved: ${token.substring(0, 10)}...');
+          
+          // Check if the token has changed by getting the user's document first
+          final userDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(currentUser.uid)
-              .update({
-                'deviceTokens': FieldValue.arrayUnion([token]),
-                'lastTokenUpdate': DateTime.now().toIso8601String(),
-              });
-          debugPrint('FCM Token saved: $token');
+              .get();
+              
+          if (userDoc.exists) {
+            final userData = userDoc.data();
+            final List<dynamic> existingTokens = userData?['deviceTokens'] ?? [];
+            
+            if (existingTokens.contains(token)) {
+              debugPrint('📱 [TokenSync] Token already exists in user document, no update needed');
+            } else {
+              debugPrint('📱 [TokenSync] Saving new token to user document');
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(currentUser.uid)
+                  .update({
+                    'deviceTokens': FieldValue.arrayUnion([token]),
+                    'lastTokenUpdate': DateTime.now().toIso8601String(),
+                  });
+              debugPrint('✅ [TokenSync] FCM Token saved successfully');
+            }
+          } else {
+            debugPrint('⚠️ [TokenSync] User document does not exist, cannot save token');
+          }
+        } else {
+          debugPrint('⚠️ [TokenSync] Could not retrieve FCM token');
         }
+      } else {
+        debugPrint('⚠️ [TokenSync] No authenticated user found, skipping token save');
       }
     } catch (e) {
-      debugPrint('Error saving device token: $e');
+      debugPrint('❌ [TokenSync] Error saving device token: $e');
     }
+  }
+
+  // Public method to save device token
+  Future<void> saveDeviceToken() async {
+    debugPrint('📱 [TokenSync] saveDeviceToken method called');
+    await _saveDeviceToken();
   }
 
   // Show a local notification

@@ -49,6 +49,8 @@ class _NotificationSettingsScreenState
               _buildNotificationTypeToggles(appProvider),
               const SizedBox(height: 24),
               _buildTestNotificationButton(appProvider),
+              const SizedBox(height: 16),
+              _buildSyncNotificationsButton(appProvider),
             ],
           );
         },
@@ -253,6 +255,85 @@ class _NotificationSettingsScreenState
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncNotificationsButton(AppProvider appProvider) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: Colors.blue.withOpacity(0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sync, color: Colors.blue),
+                const SizedBox(width: 12),
+                Text(
+                  'Sync Notifications',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Manually sync your notifications with the server to ensure you have the latest updates.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.sync, size: 18),
+                label: const Text('Sync Now'),
+                onPressed: appProvider.notificationsEnabled
+                    ? () async {
+                        // Show loading indicator
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Syncing notifications...'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                        
+                        // Refresh notifications
+                        await appProvider.refreshNotifications();
+                        
+                        // Show success message
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Notifications synced successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey[300],
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

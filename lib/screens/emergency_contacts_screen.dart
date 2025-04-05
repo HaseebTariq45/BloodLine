@@ -1384,11 +1384,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
         if (isLandscape) {
           // Landscape mode has more horizontal space
           crossAxisCount = availableWidth > 600 ? 4 : 3;
-          childAspectRatio = 1.3;
+          childAspectRatio = 1.4;
         } else {
           // Portrait mode
           crossAxisCount = availableWidth > 600 ? 3 : 2;
-          childAspectRatio = isSmallScreen ? 0.9 : 1.0;
+          childAspectRatio = isSmallScreen ? 1.0 : 1.1;
         }
 
         // Calculate responsive padding and spacing
@@ -1405,44 +1405,65 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
           children: [
             _buildQuickDialCard(
               title: 'Ambulance',
-              phoneNumber: '108',
+              phoneNumber: '1122',
               icon: Icons.emergency,
               color: Colors.red,
               constraints: constraints,
             ),
             _buildQuickDialCard(
               title: 'Emergency',
-              phoneNumber: '112',
+              phoneNumber: '15',
               icon: Icons.phone_in_talk,
               color: Colors.orange,
               constraints: constraints,
             ),
             _buildQuickDialCard(
               title: 'Blood Bank',
-              phoneNumber: '104',
+              phoneNumber: '115',
               icon: Icons.bloodtype,
               color: AppConstants.primaryColor,
               constraints: constraints,
             ),
             _buildQuickDialCard(
               title: 'Police',
-              phoneNumber: '100',
+              phoneNumber: '15',
               icon: Icons.local_police,
               color: Colors.blue[800]!,
               constraints: constraints,
             ),
             _buildQuickDialCard(
               title: 'Fire',
-              phoneNumber: '101',
+              phoneNumber: '16',
               icon: Icons.local_fire_department,
               color: Colors.deepOrange,
               constraints: constraints,
             ),
             _buildQuickDialCard(
               title: 'Women Helpline',
-              phoneNumber: '1091',
+              phoneNumber: '1099',
               icon: Icons.people,
               color: Colors.purple,
+              constraints: constraints,
+            ),
+            _buildQuickDialCard(
+              title: 'Helpline',
+              phoneNumber: '1715',
+              icon: Icons.health_and_safety,
+              color: Colors.teal,
+              constraints: constraints,
+            ),
+            _buildQuickDialCard(
+              title: 'Edhi Ambulance',
+              phoneNumber: '115',
+              icon: Icons.local_hospital,
+              color: Colors.green,
+              constraints: constraints,
+            ),
+            _buildQuickDialCard(
+              title: 'Highways & Motorway',
+              phoneNumber: '130',
+              icon: Icons.directions_car,
+              color: Colors.amber[800]!,
               constraints: constraints,
             ),
           ],
@@ -1500,10 +1521,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Icon container with flexible sizing
                     Container(
-                      height: cardConstraints.maxHeight * 0.45,
+                      height: cardConstraints.maxHeight * 0.4,
                       width: iconSize,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1525,50 +1547,57 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                         ],
                       ),
                       child: Center(
-                        child: Icon(icon, color: color, size: iconSize * 0.6),
+                        child: Icon(icon, color: color, size: iconSize * 0.5),
                       ),
                     ),
 
                     // Flexible spacing
-                    SizedBox(height: cardConstraints.maxHeight * 0.05),
+                    SizedBox(height: cardConstraints.maxHeight * 0.03),
 
                     // Title with fitted text
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: isSmallScreen ? 14 : 16,
-                        color: context.textColor,
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: isSmallScreen ? 12 : 14,
+                          color: context.textColor,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      textAlign: TextAlign.center,
                     ),
 
                     // Phone number with call icon
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.call,
-                            size: isSmallScreen ? 12 : 14,
-                            color: color,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            phoneNumber,
-                            style: TextStyle(
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.call,
+                              size: isSmallScreen ? 10 : 12,
                               color: color,
-                              fontSize: isSmallScreen ? 13 : 15,
-                              fontWeight: FontWeight.w500,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 2),
+                            Text(
+                              phoneNumber,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: isSmallScreen ? 11 : 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

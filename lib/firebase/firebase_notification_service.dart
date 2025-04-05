@@ -1,13 +1,69 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/notification_model.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class FirebaseNotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   // Get current user ID
   String? get _userId => _auth.currentUser?.uid;
+
+  // Save device token to user's document
+  Future<void> _saveDeviceToken() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        debugPrint('📱 [TokenSync] Getting FCM token for user ${currentUser.uid}');
+        final token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          debugPrint('📱 [TokenSync] FCM Token retrieved: ${token.substring(0, 10)}...');
+          
+          // Check if the token has changed by getting the user's document first
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+              
+          if (userDoc.exists) {
+            final userData = userDoc.data();
+            final List<dynamic> existingTokens = userData?['deviceTokens'] ?? [];
+            
+            if (existingTokens.contains(token)) {
+              debugPrint('📱 [TokenSync] Token already exists in user document, no update needed');
+            } else {
+              debugPrint('📱 [TokenSync] Saving new token to user document');
+              await _firestore
+                  .collection('users')
+                  .doc(currentUser.uid)
+                  .update({
+                    'deviceTokens': FieldValue.arrayUnion([token]),
+                    'lastTokenUpdate': DateTime.now().toIso8601String(),
+                  });
+              debugPrint('✅ [TokenSync] FCM Token saved successfully');
+            }
+          } else {
+            debugPrint('⚠️ [TokenSync] User document does not exist, cannot save token');
+          }
+        } else {
+          debugPrint('⚠️ [TokenSync] Could not retrieve FCM token');
+        }
+      } else {
+        debugPrint('⚠️ [TokenSync] No authenticated user found, skipping token save');
+      }
+    } catch (e) {
+      debugPrint('❌ [TokenSync] Error saving device token: $e');
+    }
+  }
+
+  // Public method to save device token
+  Future<void> saveDeviceToken() async {
+    debugPrint('📱 [TokenSync] saveDeviceToken method called');
+    await _saveDeviceToken();
+  }
 
   // Add a notification to Firestore
   Future<NotificationModel> addNotification(
@@ -32,8 +88,11 @@ class FirebaseNotificationService {
   Future<List<NotificationModel>> getUserNotifications() async {
     try {
       if (_userId == null) {
+        debugPrint('📢 [NotificationService] Cannot fetch notifications: User ID is null');
         return [];
       }
+
+      debugPrint('📢 [NotificationService] Fetching notifications for user: $_userId');
 
       // Note: We're removing the orderBy clause that requires a composite index
       // Instead, we'll sort the results client-side
@@ -42,6 +101,8 @@ class FirebaseNotificationService {
               .collection('notifications')
               .where('userId', isEqualTo: _userId)
               .get();
+
+      debugPrint('📢 [NotificationService] Retrieved ${querySnapshot.docs.length} notifications from Firestore');
 
       final notifications =
           querySnapshot.docs
@@ -55,9 +116,18 @@ class FirebaseNotificationService {
         return dateB.compareTo(dateA); // Descending order (newest first)
       });
 
+      final unreadCount = notifications.where((n) => !n.read).length;
+      debugPrint('📢 [NotificationService] Processed ${notifications.length} notifications, unread: $unreadCount');
+      
+      // Log a summary of notification types if there are any
+      if (notifications.isNotEmpty) {
+        final types = notifications.map((n) => n.type).toSet();
+        debugPrint('📢 [NotificationService] Notification types: ${types.join(', ')}');
+      }
+
       return notifications;
     } catch (e) {
-      print('Error getting user notifications: $e');
+      debugPrint('❌ [NotificationService] Error getting user notifications: $e');
       return [];
     }
   }
