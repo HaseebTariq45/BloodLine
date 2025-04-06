@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/notification_model.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../constants/app_constants.dart';
 
 // Data class for info row data
 class InfoRowData {
@@ -346,6 +347,12 @@ class NotificationCard extends StatelessWidget {
           {'initialTab': 2},
         );
       },
+      // Add second action button for marking as completed
+      secondaryActionText: 'MARK COMPLETED',
+      onSecondaryAction: requestId != null ? () {
+        Navigator.pop(context); // Close the dialog first
+        _completeBloodDonation(context, requestId);
+      } : null,
     );
   }
 
@@ -564,6 +571,236 @@ class NotificationCard extends StatelessWidget {
     );
   }
 
+  // New method to handle completing a blood donation from the notification card flow
+  Future<void> _completeBloodDonation(BuildContext context, String requestId) async {
+    try {
+      // Get the current user
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final currentUser = appProvider.currentUser;
+      final currentUserId = currentUser.id;
+      final now = DateTime.now();
+      
+      debugPrint('Starting to complete donation for request ID: $requestId');
+      debugPrint('Current user ID: $currentUserId');
+      
+      // Show confirmation dialog
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Mark Donation Complete'),
+          content: const Text('Have you completed this blood donation? This will update your donation history and eligibility status.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppConstants.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Mark Complete'),
+            ),
+          ],
+        ),
+      );
+      
+      if (confirm != true) return;
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Completing donation...'),
+            ],
+          ),
+        ),
+      );
+      
+      // Use a transaction to update both request and donation atomically
+      final firestore = FirebaseFirestore.instance;
+      try {
+        await firestore.runTransaction((transaction) async {
+          // 1. Update the blood request status to Completed
+          final requestRef = firestore.collection('blood_requests').doc(requestId);
+          
+          // Verify the document exists first
+          final requestDoc = await transaction.get(requestRef);
+          if (!requestDoc.exists) {
+            debugPrint('Warning: Blood request with ID $requestId does not exist');
+          }
+          
+          transaction.update(requestRef, {
+            'status': 'Completed',
+            'completionDate': now.toIso8601String(),
+          });
+          debugPrint('Blood request status updated to Completed');
+          
+          // 2. Update the donation record
+          String donationId;
+          if (requestId.startsWith('bloodreq_')) {
+            // For requests created via notification acceptance, strip the 'bloodreq_' prefix
+            donationId = 'donation_${requestId.substring(9)}';
+          } else if (requestId.startsWith('donation_')) {
+            // If the ID already has a donation_ prefix, don't add another one
+            donationId = requestId;
+          } else {
+            // Normal format
+            donationId = 'donation_${requestId}';
+          }
+          
+          debugPrint('Updating donation with ID: $donationId');
+          
+          try {
+            final donationRef = firestore.collection('donations').doc(donationId);
+            transaction.update(donationRef, {
+              'status': 'Completed',
+              'completionDate': now.toIso8601String(),
+            });
+          } catch (e) {
+            debugPrint('Failed to update donation: $e');
+            // Fall back to the alternative ID format if this fails
+            if (requestId.startsWith('bloodreq_')) {
+              final String alternativeDonationId;
+              if (requestId.substring(9).startsWith('donation_')) {
+                // If the ID after removing 'bloodreq_' already has 'donation_', don't add another one
+                alternativeDonationId = requestId.substring(9);
+              } else {
+                alternativeDonationId = 'donation_${requestId.substring(9)}';
+              }
+              
+              debugPrint('Trying alternative donation ID: $alternativeDonationId');
+              final altDonationRef = firestore.collection('donations').doc(alternativeDonationId);
+              transaction.update(altDonationRef, {
+                'status': 'Completed',
+                'completionDate': now.toIso8601String(),
+              });
+            }
+          }
+        });
+        
+        // 3. Update the user's lastDonationDate and availability status
+        try {
+          debugPrint('Updating user profile with new donation date: $now');
+          
+          // Update the user's lastDonationDate and neverDonatedBefore in Firestore atomically
+          await firestore.collection('users').doc(currentUserId).update({
+            'lastDonationDate': now.millisecondsSinceEpoch,
+            'isAvailableToDonate': false, // Explicitly set to false since they just donated
+            'neverDonatedBefore': false,   // Update this flag to show they have donated
+          });
+          debugPrint('User document updated in Firestore');
+          
+          // Update the user model in the app provider with the new donation date
+          // and set availability to false since they just donated
+          final updatedUser = currentUser.copyWith(
+            lastDonationDate: now,
+            isAvailableToDonate: false,
+            neverDonatedBefore: false,     // Update in the model too
+          );
+          await appProvider.updateUserProfile(updatedUser);
+          
+          // Verify both fields were updated correctly
+          final verifyUpdate = await firestore.collection('users').doc(currentUserId).get();
+          if (verifyUpdate.exists) {
+            final data = verifyUpdate.data();
+            if (data != null && data['neverDonatedBefore'] == true) {
+              // Try one more time with a direct update if the field wasn't properly updated
+              await firestore.collection('users').doc(currentUserId).update({
+                'neverDonatedBefore': false,
+              });
+              debugPrint('Had to fix neverDonatedBefore flag with a second attempt');
+            }
+          }
+          
+          // Force sync the donation availability status to ensure the UI updates
+          await appProvider.syncDonationAvailability();
+          
+          // Refresh the provider to ensure UI updates
+          appProvider.notifyListeners();
+          
+          debugPrint('Updated donor\'s donation status: lastDonationDate=${now.toString()}, neverDonatedBefore=false');
+        } catch (e) {
+          debugPrint('Error updating last donation date: $e');
+          // Don't throw - we've already completed the donation successfully
+          // But log this error for monitoring
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context); // Close the loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Donation marked complete, but failed to update your eligibility status: $e'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+        
+        // Close loading dialog and navigate back
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context); // Close the loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Donation marked as completed'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          
+          // Ensure donation history is refreshed before navigating to profile
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          
+          // Force a reload of user donations
+          await appProvider.loadUserDonations();
+          
+          // Reset any cached donation data
+          await appProvider.refreshUserData();
+          
+          // Navigate to profile
+          Navigator.pushNamedAndRemoveUntil(
+            context, 
+            '/profile', 
+            (route) => false, // This clears the navigation stack
+          );
+        }
+        
+      } catch (e) {
+        debugPrint('Error completing donation: $e');
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context); // Close the loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error completing donation: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+      
+    } catch (e) {
+      debugPrint('Error completing donation: $e');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Close the loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error completing donation: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   // Safe navigation helper
   void _safeNavigate(BuildContext context, String route, [Map<String, dynamic>? arguments]) {
     try {
@@ -619,6 +856,8 @@ class NotificationCard extends StatelessWidget {
     required String infoMessage,
     required VoidCallback onViewDetails,
     String actionButtonText = 'VIEW DETAILS',
+    String? secondaryActionText,
+    VoidCallback? onSecondaryAction,
   }) {
     final mediaQuery = MediaQuery.of(context);
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -776,44 +1015,69 @@ class NotificationCard extends StatelessWidget {
                 // Actions
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Row(
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
                           Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(
-                              color: isDarkMode ? Colors.grey[600]! : Colors.grey.shade300,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(
+                                  color: isDarkMode ? Colors.grey[600]! : Colors.grey.shade300,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                closeText,
+                                style: TextStyle(
+                                  color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                                ),
+                              ),
                             ),
                           ),
-                          child: Text(
-                            closeText,
-                            style: TextStyle(
-                              color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: onViewDetails,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(actionButtonText),
                             ),
+                          ),
+                        ],
+                      ),
+                      
+                      // Secondary action button if provided
+                      if (secondaryActionText != null && onSecondaryAction != null) ...[
+                        SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: onSecondaryAction,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade700,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(secondaryActionText),
                           ),
                         ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: onViewDetails,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(actionButtonText),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
