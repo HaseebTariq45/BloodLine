@@ -838,34 +838,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: CustomAppBar(
-        title: _isEditing ? 'Edit Profile' : 'My Profile',
-        showProfilePicture: false,
-        actions: [
-          // Fix inconsistency button (only shown when needed)
-          if (currentUser.lastDonationDate != null && currentUser.neverDonatedBefore)
-            IconButton(
-              onPressed: () => _fixDonationStatusInconsistency(_userId),
-              icon: Icon(
-                Icons.sync_problem,
-                color: Colors.orange,
-              ),
-              tooltip: 'Fix donation history inconsistency',
-            ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            tooltip: 'Settings',
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: OrientationBuilder(
-          builder: (context, orientation) {
-            return _isLoading
+      // Remove standard app bar and let the ExtendedAppBar handle both the app bar and header
+      body: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : FadeTransition(
                   opacity: _fadeAnimation,
@@ -877,8 +851,50 @@ class _ProfileScreenState extends State<ProfileScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Profile Header with Avatar - more compact now
-                          Container(
+                    // Combined App Bar and Profile Header
+                    _buildExtendedAppBar(currentUser),
+                    
+                    // Main content body
+                    Padding(
+                      padding: EdgeInsets.all(screenSize.width * 0.04),
+                      child: _isEditing
+                          ? _buildEditForm()
+                          : _buildContentBody(
+                            currentUser,
+                            MediaQuery.of(context).orientation,
+                          ),
+                    ),
+
+                    // Bottom padding to prevent FAB overlap
+                    SizedBox(
+                      height: _isEditing ? 0 : screenSize.height * 0.08,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      floatingActionButton: !_isEditing
+          ? FloatingActionButton(
+            onPressed: _toggleEdit,
+            backgroundColor: AppConstants.primaryColor,
+            child: const Icon(Icons.edit, color: Colors.white),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          )
+          : null,
+    );
+  }
+
+  // Extended App Bar that includes both the app bar and profile header
+  Widget _buildExtendedAppBar(UserModel currentUser) {
+    final orientation = MediaQuery.of(context).orientation;
+    final screenSize = MediaQuery.of(context).size;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final appBarHeight = kToolbarHeight;
+    
+    return Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -886,7 +902,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   AppConstants.primaryColor,
-                                  AppConstants.primaryColor.withOpacity(0.8),
+            AppConstants.primaryColor.withOpacity(0.85),
                                 ],
                               ),
                               borderRadius: const BorderRadius.only(
@@ -895,63 +911,90 @@ class _ProfileScreenState extends State<ProfileScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppConstants.primaryColor.withOpacity(
-                                    0.3,
-                                  ),
+            color: AppConstants.primaryColor.withOpacity(0.3),
                                   blurRadius: 10,
                                   spreadRadius: 2,
                                   offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
-                            padding: EdgeInsets.symmetric(
-                              vertical:
-                                  orientation == Orientation.portrait
-                                      ? screenSize.height * 0.02
-                                      : screenSize.height * 0.015,
-                              horizontal: screenSize.width * 0.04,
-                            ),
-                            child:
-                                orientation == Orientation.portrait
-                                    ? _buildProfileHeaderPortrait(currentUser)
-                                    : _buildProfileHeaderLandscape(currentUser),
-                          ),
-
-                          // Main content body
-                          Padding(
-                            padding: EdgeInsets.all(screenSize.width * 0.04),
-                            child:
-                                _isEditing
-                                    ? _buildEditForm()
-                                    : _buildContentBody(
-                                      currentUser,
-                                      orientation,
-                                    ),
-                          ),
-
-                          // Bottom padding to prevent FAB overlap
-                          SizedBox(
-                            height: _isEditing ? 0 : screenSize.height * 0.08,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // App Bar section
+            SizedBox(
+              height: appBarHeight,
+              child: Row(
+                children: [
+                  // Back button
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_ios,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  
+                  // Title
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        _isEditing ? 'Edit Profile' : 'My Profile',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Actions
+                  if (currentUser.lastDonationDate != null && currentUser.neverDonatedBefore)
+                    IconButton(
+                      onPressed: () => _fixDonationStatusInconsistency(_userId),
+                      icon: Icon(
+                        Icons.sync_problem,
+                        color: Colors.orange,
+                      ),
+                      tooltip: 'Fix donation history inconsistency',
+                    ),
+                  
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                    tooltip: 'Settings',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/settings');
+                    },
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-          },
+            
+            // Profile Header section
+            Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: orientation == Orientation.portrait
+                    ? screenSize.height * 0.02
+                    : screenSize.height * 0.015,
+                horizontal: screenSize.width * 0.04,
+              ),
+              child: orientation == Orientation.portrait
+                  ? _buildProfileHeaderPortrait(currentUser)
+                  : _buildProfileHeaderLandscape(currentUser),
+            ),
+          ],
         ),
       ),
-      floatingActionButton:
-          !_isEditing
-              ? FloatingActionButton(
-                onPressed: _toggleEdit,
-                backgroundColor: AppConstants.primaryColor,
-                child: const Icon(Icons.edit, color: Colors.white),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              )
-              : null,
     );
   }
 
