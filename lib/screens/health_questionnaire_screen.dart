@@ -472,14 +472,13 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                         },
                       ),
                       const SizedBox(height: 16),
-                      _buildDropdownField(
-                        label: 'Gender',
-                        value: _gender,
-                        items: ['Male', 'Female', 'Other'],
-                        icon: Icons.person,
+                      _buildGenderSelector(
+                        title: 'Gender',
+                        subtitle: 'Select your gender',
+                        currentValue: _gender,
                         onChanged: (value) {
                           setState(() {
-                            _gender = value!;
+                            _gender = value;
                             _hasUnsavedChanges = true;
                           });
                           _startAutoSaveTimer();
@@ -675,6 +674,7 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
                           });
                         },
                       ),
+                      if (_gender == 'Female')
                       _buildSwitchField(
                         title: 'Recent Pregnancy',
                         subtitle: 'Pregnant or planning to become pregnant',
@@ -1540,255 +1540,8 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
   }
 
   Widget _buildHealthStatusIndicator() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _healthStatusColor.withOpacity(isDarkMode ? 0.25 : 0.15),
-            _healthStatusColor.withOpacity(isDarkMode ? 0.1 : 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: _healthStatusColor.withOpacity(isDarkMode ? 0.4 : 0.3),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _healthStatusColor.withOpacity(isDarkMode ? 0.2 : 0.15),
-            blurRadius: 15,
-            spreadRadius: 1,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status Header
-          ClipRRect(
-              borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(22),
-              topRight: Radius.circular(22),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    _healthStatusColor.withOpacity(isDarkMode ? 0.45 : 0.35),
-                    _healthStatusColor.withOpacity(isDarkMode ? 0.30 : 0.20),
-                  ],
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                    padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDarkMode
-                          ? Colors.black.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _healthStatusColor.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                          spreadRadius: 1,
-                        ),
-                      ],
-                  ),
-                  child: Icon(
-                    _getHealthStatusIcon(),
-                    color: _healthStatusColor,
-                      size: 28,
-                  ),
-                ),
-                  const SizedBox(width: 16),
-                Text(
-                  'Donation Eligibility',
-                  style: TextStyle(
-                    color: isDarkMode
-                        ? Colors.white
-                        : Colors.black87,
-                      fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                      letterSpacing: 0.3,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.1),
-                        offset: const Offset(0, 1),
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              ),
-            ),
-          ),
-          // Status Content
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: isDarkMode 
-                      ? Colors.black.withOpacity(0.15)
-                      : Colors.white.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _healthStatusColor.withOpacity(isDarkMode ? 0.3 : 0.2),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Current Status',
-                        style: TextStyle(
-                          color: isDarkMode
-                              ? Colors.white.withOpacity(0.7)
-                              : Colors.black87.withOpacity(0.6),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _healthStatusColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: _healthStatusColor.withOpacity(0.4),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getHealthStatusIcon(),
-                              color: _healthStatusColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _healthStatus,
-                              style: TextStyle(
-                                color: _healthStatusColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                letterSpacing: 0.5,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                if (_nextDonationDate.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                    decoration: BoxDecoration(
-                      color: isDarkMode 
-                        ? Colors.black.withOpacity(0.15)
-                        : Colors.white.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDarkMode 
-                            ? Colors.grey.withOpacity(0.3)
-                            : Colors.grey.withOpacity(0.2),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.calendar_today_rounded,
-                              size: 18,
-                              color: AppConstants.primaryColor.withOpacity(0.8),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Next Donation Date',
-                              style: TextStyle(
-                                color: isDarkMode
-                                    ? Colors.white.withOpacity(0.7)
-                                    : Colors.black87.withOpacity(0.6),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppConstants.primaryColor.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            _nextDonationDate,
-                            style: TextStyle(
-                              color: AppConstants.primaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    // Use the compact donation eligibility status design
+    return _buildDonationEligibilityStatus();
   }
 
   IconData _getHealthStatusIcon() {
@@ -2555,5 +2308,401 @@ class _HealthQuestionnaireScreenState extends State<HealthQuestionnaireScreen> w
   // Update diseases controller for backward compatibility
   void _updateDiseasesController() {
     _diseasesController.text = _diseasesList.join(', ');
+  }
+
+  // Build donation eligibility status section with a more compact design
+  Widget _buildDonationEligibilityStatus() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6), // Further reduced margin
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _healthStatusColor.withOpacity(isDarkMode ? 0.2 : 0.12),
+            _healthStatusColor.withOpacity(isDarkMode ? 0.08 : 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12), // Even smaller border radius
+        border: Border.all(
+          color: _healthStatusColor.withOpacity(isDarkMode ? 0.3 : 0.2),
+          width: 0.8, // Thinner border
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _healthStatusColor.withOpacity(isDarkMode ? 0.15 : 0.1),
+            blurRadius: 5, // Further reduced blur
+            spreadRadius: 0.3, // Further reduced spread
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status Header with even more reduced size
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(11), // Even smaller radius
+              topRight: Radius.circular(11), // Even smaller radius
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Further reduced padding
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _healthStatusColor.withOpacity(isDarkMode ? 0.35 : 0.25),
+                    _healthStatusColor.withOpacity(isDarkMode ? 0.2 : 0.15),
+                  ],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4), // Further reduced padding
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Colors.black.withOpacity(0.2)
+                          : Colors.white.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8), // Even smaller radius
+                      boxShadow: [
+                        BoxShadow(
+                          color: _healthStatusColor.withOpacity(0.2),
+                          blurRadius: 4, // Further reduced blur
+                          offset: const Offset(0, 1), // Even smaller offset
+                          spreadRadius: 0.2, // Further reduced spread
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _getHealthStatusIcon(),
+                      color: _healthStatusColor,
+                      size: 16, // Even smaller icon
+                    ),
+                  ),
+                  const SizedBox(width: 8), // Further reduced spacing
+                  Text(
+                    'Donation Eligibility',
+                    style: TextStyle(
+                      color: isDarkMode
+                          ? Colors.white
+                          : Colors.black87,
+                      fontSize: 14, // Further reduced font size
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.1, // Further reduced letter spacing
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Status Content with further reduced size
+          Padding(
+            padding: const EdgeInsets.all(12), // Further reduced padding
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10), // Further reduced padding
+                  decoration: BoxDecoration(
+                    color: isDarkMode 
+                      ? Colors.black.withOpacity(0.15)
+                      : Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(8), // Even smaller radius
+                    border: Border.all(
+                      color: _healthStatusColor.withOpacity(isDarkMode ? 0.2 : 0.15),
+                      width: 0.8, // Thinner border
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 4, // Further reduced blur
+                        offset: const Offset(0, 1), // Even smaller offset
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Current Status',
+                        style: TextStyle(
+                          color: isDarkMode
+                              ? Colors.white.withOpacity(0.7)
+                              : Colors.black87.withOpacity(0.6),
+                          fontSize: 12, // Further reduced font size
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 5), // Further reduced spacing
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Further reduced padding
+                        decoration: BoxDecoration(
+                          color: _healthStatusColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12), // Even smaller radius
+                          border: Border.all(
+                            color: _healthStatusColor.withOpacity(0.3),
+                            width: 0.8, // Thinner border
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getHealthStatusIcon(),
+                              color: _healthStatusColor,
+                              size: 14, // Even smaller icon
+                            ),
+                            const SizedBox(width: 4), // Further reduced spacing
+                            Text(
+                              _healthStatus,
+                              style: TextStyle(
+                                color: _healthStatusColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13, // Further reduced font size
+                                letterSpacing: 0.2, // Further reduced letter spacing
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                if (_nextDonationDate.isNotEmpty) ...[
+                  const SizedBox(height: 8), // Further reduced spacing
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10), // Further reduced padding
+                    decoration: BoxDecoration(
+                      color: isDarkMode 
+                        ? Colors.black.withOpacity(0.15)
+                        : Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(8), // Even smaller radius
+                      border: Border.all(
+                        color: isDarkMode 
+                            ? Colors.grey.withOpacity(0.2)
+                            : Colors.grey.withOpacity(0.15),
+                        width: 0.8, // Thinner border
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 4, // Further reduced blur
+                          offset: const Offset(0, 1), // Even smaller offset
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 12, // Even smaller icon
+                              color: AppConstants.primaryColor.withOpacity(0.7),
+                            ),
+                            const SizedBox(width: 4), // Further reduced spacing
+                            Text(
+                              'Next Donation Date',
+                              style: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white.withOpacity(0.7)
+                                    : Colors.black87.withOpacity(0.6),
+                                fontSize: 12, // Further reduced font size
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5), // Further reduced spacing
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Further reduced padding
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(6), // Even smaller radius
+                            border: Border.all(
+                              color: AppConstants.primaryColor.withOpacity(0.25),
+                              width: 0.8, // Thinner border
+                            ),
+                          ),
+                          child: Text(
+                            _nextDonationDate,
+                            style: TextStyle(
+                              color: AppConstants.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13, // Further reduced font size
+                              letterSpacing: 0.2, // Further reduced letter spacing
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build gender selector that matches the style of switch fields
+  Widget _buildGenderSelector({
+    required String title,
+    required String subtitle,
+    required String currentValue,
+    required ValueChanged<String> onChanged,
+  }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final options = ['Male', 'Female', 'Other'];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+        ),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: isDarkMode ? Colors.grey[800]!.withOpacity(0.7) : Colors.grey[50]!,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppConstants.primaryColor.withOpacity(isDarkMode ? 0.3 : 0.2),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.grey.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16, top: 12, right: 16, bottom: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor.withOpacity(isDarkMode ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.person,
+                        color: AppConstants.primaryColor,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDarkMode
+                            ? Colors.grey[400]
+                            : Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: options.map((option) {
+                    final isSelected = option == currentValue;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                          decoration: BoxDecoration(
+                            gradient: isSelected
+                                ? LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      AppConstants.primaryColor.withOpacity(isDarkMode ? 0.7 : 0.6),
+                                      AppConstants.primaryColor.withOpacity(isDarkMode ? 0.5 : 0.4),
+                                    ],
+                                  )
+                                : null,
+                            color: isSelected 
+                                ? null 
+                                : (isDarkMode ? Colors.grey[700] : Colors.grey[200]),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: AppConstants.primaryColor.withOpacity(0.3),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => onChanged(option),
+                              splashColor: AppConstants.primaryColor.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Text(
+                                  option,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : (isDarkMode ? Colors.white.withOpacity(0.7) : Colors.black87),
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 } 
