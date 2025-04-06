@@ -437,7 +437,19 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         });
 
         // 2. Update the donation record if it exists
-        final donationId = 'donation_${request.id}';
+        // Handle different donation ID formats
+        String donationId;
+        if (request.id.startsWith('bloodreq_')) {
+          // For requests created via notification acceptance, strip the 'bloodreq_' prefix
+          donationId = 'donation_${request.id.substring(9)}';
+        } else {
+          // Normal format
+          donationId = 'donation_${request.id}';
+        }
+        
+        debugPrint('Updating donation with ID: $donationId');
+        
+        try {
           final donationRef = firestore.collection('donations').doc(donationId);
           transaction.update(donationRef, {
             'status': 'Completed',
@@ -445,6 +457,21 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
             'notes': notesController.text,
             'location': request.location,
           });
+        } catch (e) {
+          debugPrint('Failed to update donation: $e');
+          // Fall back to the alternative ID format if this fails
+          if (request.id.startsWith('bloodreq_')) {
+            final alternativeDonationId = 'donation_${request.id}';
+            debugPrint('Trying alternative donation ID: $alternativeDonationId');
+            final altDonationRef = firestore.collection('donations').doc(alternativeDonationId);
+            transaction.update(altDonationRef, {
+              'status': 'Completed',
+              'completionDate': DateTime.now().toIso8601String(),
+              'notes': notesController.text,
+              'location': request.location,
+            });
+          }
+        }
       });
 
       // 3. If the current user is the donor, update their last donation date
@@ -516,6 +543,16 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         final String recipientId = isDonor ? request.requesterId : request.responderId!;
         final String completionDateStr = DateTime.now().toIso8601String();
         
+        // Get the correct donation ID
+        String donationId;
+        if (request.id.startsWith('bloodreq_')) {
+          // For requests created via notification acceptance, strip the 'bloodreq_' prefix
+          donationId = 'donation_${request.id.substring(9)}';
+        } else {
+          // Normal format
+          donationId = 'donation_${request.id}';
+        }
+        
         // Create notification model with consistent metadata structure
         final notification = NotificationModel(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -529,7 +566,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
           createdAt: completionDateStr,
           metadata: {
             'requestId': request.id,
-            'donationId': 'donation_${request.id}',
+            'donationId': donationId,
             'completedBy': currentUserId,
             'completedByName': currentUser.name,
             'completionDate': completionDateStr,
@@ -616,53 +653,144 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         _isLoading = true;
       });
 
-      // Get the donation data first
-      final donationDoc =
+      // Handle different donation ID formats
+      String actualDonationId = donationId;
+      bool documentFound = false;
+      
+      // First try with the provided ID
+      try {
+        debugPrint('Attempting to get donation with ID: $actualDonationId');
+        final donationDoc = await FirebaseFirestore.instance
+            .collection('donations')
+            .doc(actualDonationId)
+            .get();
+        
+        documentFound = donationDoc.exists;
+        
+        if (documentFound) {
+          final donationData = donationDoc.data() as Map<String, dynamic>;
+          debugPrint('Found donation document: ${donationDoc.id}');
+          
+          // Check if this donation is linked to a request
+          if (donationData.containsKey('requestId') &&
+              donationData['requestId'] != null) {
+            final requestId = donationData['requestId'];
+            
+            // Update the request status back to pending
+            await FirebaseFirestore.instance
+                .collection('blood_requests')
+                .doc(requestId)
+                .update({
+                  'status': 'Pending',
+                  'responderId': null,
+                  'responderName': null,
+                  'responderPhone': null,
+                  'responseDate': null,
+                });
+          }
+          
+          // Update the donation status
           await FirebaseFirestore.instance
               .collection('donations')
-              .doc(donationId)
-              .get();
-
-      if (!donationDoc.exists) {
-        throw Exception('Donation not found');
+              .doc(actualDonationId)
+              .update({
+                'status': 'Cancelled',
+                'cancellationDate': DateTime.now().toIso8601String(),
+              });
+              
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Donation cancelled successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error with first donation ID attempt: $e');
+        documentFound = false;
       }
-
-      final donationData = donationDoc.data() as Map<String, dynamic>;
-
-      // Check if this donation is linked to a request
-      if (donationData.containsKey('requestId') &&
-          donationData['requestId'] != null) {
-        final requestId = donationData['requestId'];
-
-        // Update the request status back to pending
-        await FirebaseFirestore.instance
-            .collection('blood_requests')
-            .doc(requestId)
-            .update({
-              'status': 'Pending',
-              'responderId': null,
-              'responderName': null,
-              'responderPhone': null,
-              'responseDate': null,
-            });
+      
+      // If document not found with first ID, try alternative format
+      if (!documentFound) {
+        try {
+          debugPrint('Document not found with provided ID, trying alternative formats');
+          
+          String alternativeId = donationId;
+          // If the ID is donation_bloodreq_something, extract the original ID
+          if (donationId.contains('_bloodreq_')) {
+            // Extract parts: e.g., "donation_bloodreq_xyz123" -> "donation_xyz123"
+            final parts = donationId.split('_bloodreq_');
+            if (parts.length == 2) {
+              alternativeId = parts[0] + '_' + parts[1];
+              debugPrint('Trying alternative ID: $alternativeId');
+            }
+          } 
+          // If ID is donation_xyz, try donation_bloodreq_xyz
+          else if (donationId.startsWith('donation_')) {
+            final originalId = donationId.substring(9); // Remove 'donation_'
+            alternativeId = 'donation_bloodreq_$originalId';
+            debugPrint('Trying alternative ID: $alternativeId');
+          }
+          
+          if (alternativeId != donationId) {
+            final altDonationDoc = await FirebaseFirestore.instance
+                .collection('donations')
+                .doc(alternativeId)
+                .get();
+            
+            if (altDonationDoc.exists) {
+              final donationData = altDonationDoc.data() as Map<String, dynamic>;
+              debugPrint('Found donation with alternative ID: ${altDonationDoc.id}');
+              
+              // Check if this donation is linked to a request
+              if (donationData.containsKey('requestId') &&
+                  donationData['requestId'] != null) {
+                final requestId = donationData['requestId'];
+                
+                // Update the request status back to pending
+                await FirebaseFirestore.instance
+                    .collection('blood_requests')
+                    .doc(requestId)
+                    .update({
+                      'status': 'Pending',
+                      'responderId': null,
+                      'responderName': null,
+                      'responderPhone': null,
+                      'responseDate': null,
+                    });
+              }
+              
+              // Update the donation status
+              await FirebaseFirestore.instance
+                  .collection('donations')
+                  .doc(alternativeId)
+                  .update({
+                    'status': 'Cancelled',
+                    'cancellationDate': DateTime.now().toIso8601String(),
+                  });
+                  
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Donation cancelled successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+              
+              documentFound = true;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error with alternative donation ID attempt: $e');
+        }
       }
-
-      // Update the donation status
-      await FirebaseFirestore.instance
-          .collection('donations')
-          .doc(donationId)
-          .update({
-            'status': 'Cancelled',
-            'cancellationDate': DateTime.now().toIso8601String(),
-          });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Donation cancelled successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      
+      // If still not found after all attempts
+      if (!documentFound) {
+        throw Exception('Donation not found with any ID format. Original ID: $donationId');
       }
     } catch (e) {
       debugPrint('Error cancelling donation: $e');
@@ -1012,25 +1140,25 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                   .snapshots(),
               builder: (context, recipientSnapshot) {
                 // Process request data
-                int newRequestsCount = 0;
-                int inProgressCount = 0;
-                int completedCount = 0;
+        int newRequestsCount = 0;
+        int inProgressCount = 0;
+        int completedCount = 0;
 
                 if (requestsSnapshot.hasData) {
                   final requests = requestsSnapshot.data?.docs ?? [];
-                  for (var doc in requests) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final status = data['status'] as String;
+          for (var doc in requests) {
+            final data = doc.data() as Map<String, dynamic>;
+            final status = data['status'] as String;
 
                     if (status == 'New' || status == 'Pending') {
-                      newRequestsCount++;
-                    } else if (status == 'Accepted' || status == 'Scheduled') {
-                      inProgressCount++;
-                    } else if (status == 'Completed') {
-                      completedCount++;
-                    }
-                  }
-                }
+              newRequestsCount++;
+            } else if (status == 'Accepted' || status == 'Scheduled') {
+              inProgressCount++;
+            } else if (status == 'Completed') {
+              completedCount++;
+            }
+          }
+        }
 
                 // Process donation data
                 int donationsGiven = 0;
@@ -1077,36 +1205,36 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                 if (lastDonationDate != null) {
                   // Typically, people can donate every 56 days (about 8 weeks)
                   nextEligibleDate = lastDonationDate.add(const Duration(days: 56));
-                }
+        }
 
-                return Container(
-                  margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppConstants.primaryColor.withOpacity(0.9),
-                        AppConstants.primaryColor.withOpacity(0.7),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppConstants.primaryColor.withOpacity(0.9),
+                AppConstants.primaryColor.withOpacity(0.7),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
                         color: AppConstants.primaryColor.withOpacity(0.2),
                         blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
-                    children: [
+            children: [
                       // Compact header with essential user info
-                      Padding(
+              Padding(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                        child: Row(
+                child: Row(
                           children: [
                             // Blood type circle - smaller
                             CircleAvatar(
@@ -1161,17 +1289,17 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
+                  children: [
+                    Icon(
                                     Icons.circle,
                                     color: nextEligibleDate != null && 
                                            DateTime.now().isAfter(nextEligibleDate)
                                         ? Colors.lightGreenAccent
                                         : Colors.amber,
                                     size: 10,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
                                     nextEligibleDate != null && 
                                     DateTime.now().isAfter(nextEligibleDate)
                                         ? 'Ready'
@@ -1216,12 +1344,12 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                                       ),
                                       child: const Text(
                                         'Requests',
-                                        style: TextStyle(
+                      style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
@@ -1238,7 +1366,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                             ),
                             const SizedBox(width: 8),
                             // Donations column
-                            Expanded(
+              Expanded(
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -1247,7 +1375,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                  children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
@@ -1276,11 +1404,11 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
+                ),
+              ),
+            ],
+          ),
                 );
               },
             );
@@ -1330,7 +1458,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,
-        ),
+      ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1346,21 +1474,21 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
           ),
           const SizedBox(height: 4),
           // Count with large font
-          Text(
-            count,
-            style: const TextStyle(
-              color: Colors.white,
+              Text(
+                count,
+                style: const TextStyle(
+                  color: Colors.white,
               fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           // Title with small font
-          Text(
-            title,
-            style: TextStyle(
+              Text(
+                title,
+                style: TextStyle(
               color: Colors.white.withOpacity(0.8),
               fontSize: 12,
-            ),
+                ),
           ),
         ],
       ),

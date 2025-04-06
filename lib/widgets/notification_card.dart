@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../models/notification_model.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 
 // Data class for info row data
 class InfoRowData {
@@ -349,33 +351,148 @@ class NotificationCard extends StatelessWidget {
 
   // Handle donation request notification
   void _handleDonationRequest(BuildContext context) {
-              onMarkAsRead();
+    onMarkAsRead();
 
-              // Get requester information with proper null checks
-              final Map<String, dynamic> metadata = notification.metadata ?? {};
-              debugPrint('Donation request metadata: $metadata');
+    // Get requester information with proper null checks
+    final Map<String, dynamic> metadata = notification.metadata ?? {};
+    debugPrint('Donation request metadata: $metadata');
 
-              final String? requesterId = metadata['requesterId'];
-              final String? requesterName = metadata['requesterName'];
-              final String? requesterPhone = metadata['requesterPhone'];
-              final String? requesterEmail = metadata['requesterEmail'];
-              final String? requesterBloodType = metadata['requesterBloodType'];
-              final String? requesterAddress = metadata['requesterAddress'];
-              final String? requestId = metadata['requestId'];
+    final String? requesterId = metadata['requesterId'];
+    final String? requesterName = metadata['requesterName'];
+    final String? requesterPhone = metadata['requesterPhone'];
+    final String? requesterEmail = metadata['requesterEmail'];
+    final String? requesterBloodType = metadata['requesterBloodType'];
+    final String? requesterAddress = metadata['requesterAddress'];
+    final String? requestId = metadata['requestId'];
 
-              // Debug log
-              debugPrint('Notification card, requester info:');
-              debugPrint('  requesterId: $requesterId');
-              debugPrint('  requesterName: $requesterName');
-              debugPrint('  requesterPhone: $requesterPhone');
-              debugPrint('  requesterEmail: $requesterEmail');
-              debugPrint('  requesterBloodType: $requesterBloodType');
-              debugPrint('  requesterAddress: $requesterAddress');
-              debugPrint('  requestId: $requestId');
+    // Debug log
+    debugPrint('Notification card, requester info:');
+    debugPrint('  requesterId: $requesterId');
+    debugPrint('  requesterName: $requesterName');
+    debugPrint('  requesterPhone: $requesterPhone');
+    debugPrint('  requesterEmail: $requesterEmail');
+    debugPrint('  requesterBloodType: $requesterBloodType');
+    debugPrint('  requesterAddress: $requesterAddress');
+    debugPrint('  requestId: $requestId');
 
     // Primary color for this notification type
     final Color primaryColor = Colors.blue.shade600;
     final List<Color> gradientColors = [primaryColor, Colors.blue.shade400];
+
+    // Accept donation request function
+    Future<void> _acceptDonationRequest() async {
+      Navigator.pop(context); // Close the dialog first
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Processing your acceptance...'),
+            ],
+          ),
+        ),
+      );
+      
+      try {
+        debugPrint('Accepting donation request: $requestId');
+        final currentUser = Provider.of<AppProvider>(context, listen: false).currentUser;
+        
+        // Update donation request status
+        if (requestId != null && requestId.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('donation_requests')
+              .doc(requestId)
+              .update({
+                'status': 'Accepted',
+                'acceptedAt': DateTime.now().toIso8601String(),
+              });
+              
+          debugPrint('Donation request accepted successfully in Firestore');
+          
+          // Create a donation record in the donations collection
+          final donationId = 'donation_${requestId}';
+          await FirebaseFirestore.instance
+              .collection('donations')
+              .doc(donationId)
+              .set({
+                'id': donationId,
+                'donorId': currentUser.id,
+                'donorName': currentUser.name,
+                'recipientId': requesterId ?? '',
+                'recipientName': requesterName ?? '',
+                'recipientPhone': requesterPhone ?? '',
+                'bloodType': requesterBloodType ?? '',
+                'date': DateTime.now().toIso8601String(),
+                'status': 'Accepted',
+                'requestId': requestId,
+                'location': requesterAddress ?? '',
+              });
+          
+          debugPrint('Donation record created successfully in Firestore');
+          
+          // Also create a record in blood_requests collection to match the query in _buildAcceptedDonationsTab
+          final bloodRequestId = 'bloodreq_${requestId}';
+          await FirebaseFirestore.instance
+              .collection('blood_requests')
+              .doc(bloodRequestId)
+              .set({
+                'id': bloodRequestId,
+                'responderId': currentUser.id,
+                'responderName': currentUser.name,
+                'requesterId': requesterId ?? '',
+                'requesterName': requesterName ?? '',
+                'contactNumber': requesterPhone ?? '',
+                'bloodType': requesterBloodType ?? '',
+                'location': requesterAddress ?? '',
+                'city': requesterAddress ?? '',
+                'status': 'Accepted',
+                'requestDate': DateTime.now().toIso8601String(),
+                'acceptedAt': DateTime.now().toIso8601String(),
+              });
+              
+          debugPrint('Blood request record created successfully in Firestore');
+          
+          // Close loading dialog
+          Navigator.pop(context);
+          
+          // Navigate to donation tracking screen - My Donations tab
+          _safeNavigate(
+            context,
+            '/donation_tracking',
+            {'initialIndex': 1, 'subTabIndex': 0}, // 1 = My Donations tab, 0 = first subtab
+          );
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Donation request accepted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception('Invalid request ID');
+        }
+      } catch (e) {
+        debugPrint('Error accepting donation request: $e');
+        
+        // Close loading dialog
+        Navigator.pop(context);
+        
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accepting donation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
 
     // Show dialog with information about the request
     _showEnhancedDialog(
@@ -413,15 +530,9 @@ class NotificationCard extends StatelessWidget {
             icon: Icons.location_on,
           ),
       ],
-      infoMessage: 'You can review this donation request and respond accordingly.',
-      onViewDetails: () {
-        Navigator.pop(context);
-        _safeNavigate(
-                  context,
-          '/donation_tracking',
-          {'initialTab': 2, 'requestId': requestId},
-        );
-      },
+      infoMessage: 'Please accept this donation request if you can help. You will be redirected to the donation tracking screen.',
+      onViewDetails: _acceptDonationRequest,
+      actionButtonText: 'ACCEPT',
     );
   }
 
@@ -468,7 +579,7 @@ class NotificationCard extends StatelessWidget {
                       }
   }
 
-  // Reusable enhanced dialog builder
+  // Enhanced dialog that shows more information with better styling
   void _showEnhancedDialog({
     required BuildContext context,
     required String title,
@@ -479,9 +590,10 @@ class NotificationCard extends StatelessWidget {
     required List<InfoRowData> infoRows,
     required String infoMessage,
     required VoidCallback onViewDetails,
+    String actionButtonText = 'VIEW DETAILS',
   }) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
                       showDialog(
                         context: context,
@@ -671,7 +783,7 @@ class NotificationCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: Text(viewDetailsText),
+                          child: Text(actionButtonText),
                         ),
                       ),
                     ],
