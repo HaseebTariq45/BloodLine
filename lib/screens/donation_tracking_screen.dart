@@ -711,8 +711,52 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
               ? const Center(child: CircularProgressIndicator())
               : Column(
                 children: [
-                  // Dashboard summary section
-                  _buildDashboardSummary(),
+                  // Dashboard summary section with title and refresh button
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Donation Dashboard',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, size: 18),
+                          onPressed: () {
+                            setState(() {
+                              _isLoading = true;
+                            });
+                            _loadData().then((_) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Dashboard refreshed'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            });
+                          },
+                          tooltip: 'Refresh dashboard',
+                          color: AppConstants.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Animated Dashboard summary
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: _buildDashboardSummary(),
+                  ),
 
                   // Search and filter in a row to save space
                   Padding(
@@ -942,6 +986,9 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
   // New dashboard summary widget with statistics
   Widget _buildDashboardSummary() {
     final currentUserId = Provider.of<AppProvider>(context).currentUser.id;
+    final appProvider = Provider.of<AppProvider>(context);
+    final userName = appProvider.currentUser.name;
+    final userBloodType = appProvider.currentUser.bloodType;
 
     return StreamBuilder<QuerySnapshot>(
       stream:
@@ -949,110 +996,325 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
               .collection('blood_requests')
               .where('requesterId', isEqualTo: currentUserId)
               .snapshots(),
-      builder: (context, snapshot) {
-        int newRequestsCount = 0;
-        int inProgressCount = 0;
-        int completedCount = 0;
+      builder: (context, requestsSnapshot) {
+        // Get donations where user is a donor
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('donations')
+              .where('donorId', isEqualTo: currentUserId)
+              .snapshots(),
+          builder: (context, donorSnapshot) {
+            // Get donations where user is a recipient
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('donations')
+                  .where('recipientId', isEqualTo: currentUserId)
+                  .snapshots(),
+              builder: (context, recipientSnapshot) {
+                // Process request data
+                int newRequestsCount = 0;
+                int inProgressCount = 0;
+                int completedCount = 0;
 
-        if (snapshot.hasData) {
-          final requests = snapshot.data?.docs ?? [];
-          for (var doc in requests) {
-            final data = doc.data() as Map<String, dynamic>;
-            final status = data['status'] as String;
+                if (requestsSnapshot.hasData) {
+                  final requests = requestsSnapshot.data?.docs ?? [];
+                  for (var doc in requests) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final status = data['status'] as String;
 
-            if (status == 'New') {
-              newRequestsCount++;
-            } else if (status == 'Accepted' || status == 'Scheduled') {
-              inProgressCount++;
-            } else if (status == 'Completed') {
-              completedCount++;
-            }
-          }
-        }
+                    if (status == 'New' || status == 'Pending') {
+                      newRequestsCount++;
+                    } else if (status == 'Accepted' || status == 'Scheduled') {
+                      inProgressCount++;
+                    } else if (status == 'Completed') {
+                      completedCount++;
+                    }
+                  }
+                }
 
-        return Container(
-          margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppConstants.primaryColor.withOpacity(0.9),
-                AppConstants.primaryColor.withOpacity(0.7),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppConstants.primaryColor.withOpacity(0.3),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Title section
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.insights,
-                      color: Colors.white.withOpacity(0.9),
-                      size: 18,
+                // Process donation data
+                int donationsGiven = 0;
+                int donationsReceived = 0;
+                DateTime? lastDonationDate;
+
+                if (donorSnapshot.hasData) {
+                  final donations = donorSnapshot.data?.docs ?? [];
+                  for (var doc in donations) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final status = data['status'] as String?;
+                    
+                    if (status == 'Completed') {
+                      donationsGiven++;
+                      
+                      // Check donation date
+                      final donationDateStr = data['donationDate'] as String?;
+                      if (donationDateStr != null) {
+                        final donationDate = DateTime.tryParse(donationDateStr);
+                        if (donationDate != null) {
+                          if (lastDonationDate == null || donationDate.isAfter(lastDonationDate)) {
+                            lastDonationDate = donationDate;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (recipientSnapshot.hasData) {
+                  final donations = recipientSnapshot.data?.docs ?? [];
+                  for (var doc in donations) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final status = data['status'] as String?;
+                    
+                    if (status == 'Completed') {
+                      donationsReceived++;
+                    }
+                  }
+                }
+
+                // Calculate next eligible donation date
+                DateTime? nextEligibleDate;
+                if (lastDonationDate != null) {
+                  // Typically, people can donate every 56 days (about 8 weeks)
+                  nextEligibleDate = lastDonationDate.add(const Duration(days: 56));
+                }
+
+                return Container(
+                  margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppConstants.primaryColor.withOpacity(0.9),
+                        AppConstants.primaryColor.withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Summary',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppConstants.primaryColor.withOpacity(0.2),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Stat cards in a row
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatCard(
-                      context,
-                      'New',
-                      newRequestsCount.toString(),
-                      Icons.hourglass_empty,
-                      Colors.orange,
-                    ),
-                    _buildStatCard(
-                      context,
-                      'Active',
-                      inProgressCount.toString(),
-                      Icons.pending_actions,
-                      Colors.blue,
-                    ),
-                    _buildStatCard(
-                      context,
-                      'Done',
-                      completedCount.toString(),
-                      Icons.check_circle,
-                      Colors.green,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Compact header with essential user info
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                        child: Row(
+                          children: [
+                            // Blood type circle - smaller
+                            CircleAvatar(
+                              backgroundColor: Colors.white,
+                              radius: 14,
+                              child: Text(
+                                userBloodType,
+                                style: TextStyle(
+                                  color: AppConstants.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // User name and donation status
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    userName,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (lastDonationDate != null)
+                                    Text(
+                                      'Last: ${DateFormat('MMM d').format(lastDonationDate)}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            // Eligibility badge - more compact
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    color: nextEligibleDate != null && 
+                                           DateTime.now().isAfter(nextEligibleDate)
+                                        ? Colors.lightGreenAccent
+                                        : Colors.amber,
+                                    size: 10,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    nextEligibleDate != null && 
+                                    DateTime.now().isAfter(nextEligibleDate)
+                                        ? 'Ready'
+                                        : nextEligibleDate != null
+                                            ? '${DateFormat('MM/dd').format(nextEligibleDate)}'
+                                            : 'Unknown',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Combined statistics in a single row - more compact
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Requests column
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Requests',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCompactStatItem('New', newRequestsCount.toString(), Colors.amber),
+                                        _buildCompactStatItem('Active', inProgressCount.toString(), Colors.lightBlue),
+                                        _buildCompactStatItem('Done', completedCount.toString(), Colors.lightGreenAccent),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Donations column
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Donations',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCompactStatItem('Given', donationsGiven.toString(), Colors.cyan),
+                                        _buildCompactStatItem('Received', donationsReceived.toString(), Colors.pinkAccent),
+                                        _buildCompactStatItem('Total', (donationsGiven + donationsReceived).toString(), Colors.purpleAccent),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
   }
 
-  // Stat card for dashboard
+  // More compact stat item
+  Widget _buildCompactStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Stat card for dashboard (Keep this for reference or in case it's used elsewhere)
   Widget _buildStatCard(
     BuildContext context,
     String title,
@@ -1061,35 +1323,44 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 4),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                count,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 10,
-                ),
-              ),
-            ],
+          // Icon in a circle
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(height: 4),
+          // Count with large font
+          Text(
+            count,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          // Title with small font
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -1132,109 +1403,7 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
     );
   }
 
-  Widget _buildMyRequestsTab() {
-    return Column(
-      children: [
-        // Sub-tab bar for My Requests with enhanced styling
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(3),
-              child: TabBar(
-                controller: _tabController,
-                indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Theme.of(context).cardColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                isScrollable: false,
-                labelPadding: EdgeInsets.zero,
-                labelColor: AppConstants.primaryColor,
-                unselectedLabelColor: Colors.grey.shade600,
-                dividerColor: Colors.transparent,
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
-                ),
-                overlayColor: MaterialStateProperty.all(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-                tabs: [
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.hourglass_top, size: 16),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'In Progress',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.pending_actions, size: 16),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Accepted',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_circle, size: 16),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Completed',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        // Tab content
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            physics: const BouncingScrollPhysics(),
-            children: [
-              _buildInProgressResponsesTab(),
-              _buildAcceptedRequestsTab(),
-              _buildCompletedTab(),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
+  // Stat card for dashboard (Keep this for reference or in case it's used elsewhere)
   Widget _buildMyDonationsTab() {
     return Column(
       children: [
@@ -2455,5 +2624,108 @@ class _DonationTrackingScreenState extends State<DonationTrackingScreen>
         );
       }
     }
+  }
+
+  Widget _buildMyRequestsTab() {
+    return Column(
+      children: [
+        // Sub-tab bar for My Requests with enhanced styling
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Theme.of(context).cardColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                isScrollable: false,
+                labelPadding: EdgeInsets.zero,
+                labelColor: AppConstants.primaryColor,
+                unselectedLabelColor: Colors.grey.shade600,
+                dividerColor: Colors.transparent,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+                overlayColor: MaterialStateProperty.all(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.hourglass_top, size: 16),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'In Progress',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.pending_actions, size: 16),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Accepted',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle, size: 16),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Completed',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Tab content
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildInProgressResponsesTab(),
+              _buildAcceptedRequestsTab(),
+              _buildCompletedTab(),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

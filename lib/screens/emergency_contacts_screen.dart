@@ -1557,13 +1557,13 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen>
                     Flexible(
                       flex: 2,
                       child: Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
                           fontSize: isSmallScreen ? 11 : 13,
-                          color: context.textColor,
-                        ),
-                        textAlign: TextAlign.center,
+                        color: context.textColor,
+                      ),
+                      textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
