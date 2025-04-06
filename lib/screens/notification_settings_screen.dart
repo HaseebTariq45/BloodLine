@@ -5,6 +5,7 @@ import '../constants/app_constants.dart';
 import '../widgets/custom_app_bar.dart';
 import '../services/local_notification_service.dart';
 import '../services/service_locator.dart';
+import '../services/firebase_notification_service.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -55,6 +56,48 @@ class _NotificationSettingsScreenState
               _buildTestLocalNotificationButton(appProvider),
               const SizedBox(height: 16),
               _buildSyncNotificationsButton(appProvider),
+              const SizedBox(height: 16),
+              // Test notification button
+              ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sending test notification...'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                    
+                    // Get the FirebaseNotificationService instance
+                    final notificationService = FirebaseNotificationService();
+                    
+                    // Call the test notification method
+                    await notificationService.testNotification();
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Test notification sent!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.notifications_active),
+                label: const Text('Send Test Notification'),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           );
         },

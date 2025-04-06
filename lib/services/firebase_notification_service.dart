@@ -10,6 +10,7 @@ import '../constants/app_constants.dart';
 import '../widgets/blood_response_notification_dialog.dart';
 import '../widgets/donation_request_notification_dialog.dart';
 import '../widgets/blood_request_notification_dialog.dart';
+import '../models/notification_model.dart';
 
 class FirebaseNotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -167,12 +168,26 @@ class FirebaseNotificationService {
     // Skip showing local notifications on web platform
     if (kIsWeb) return;
     
-    final androidDetails = AndroidNotificationDetails(
+    // Create the notification channel FIRST for Android
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'blood_donation_channel',
       'Blood Donation Notifications',
-      channelDescription: 'Notifications for blood donation app',
+      description: 'Notifications for blood donation app',
+      importance: Importance.high,
+    );
+    
+    // Create the channel
+    await _flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+    
+    final androidDetails = AndroidNotificationDetails(
+      channel.id,
+      channel.name,
+      channelDescription: channel.description,
       importance: Importance.high,
       priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
     );
 
     final iosDetails = const DarwinNotificationDetails(
@@ -197,6 +212,57 @@ class FirebaseNotificationService {
         details,
         payload: json.encode(data),
       );
+    }
+  }
+
+  // Test notification method to verify notification drawer functionality
+  Future<void> testNotification() async {
+    try {
+      // Skip on web platform
+      if (kIsWeb) {
+        debugPrint('📱 [LocalNotification] Test notification skipped on web platform');
+        return;
+      }
+      
+      debugPrint('📱 [LocalNotification] Sending test notification to drawer');
+      
+      // Create the notification channel
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'blood_donation_channel',
+        'Blood Donation Notifications',
+        description: 'Notifications for blood donation app',
+        importance: Importance.max,
+      );
+      
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+          
+      await _flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecond,
+        'Test Notification',
+        'This is a test notification that should appear in your drawer',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channel.id,
+            channel.name,
+            channelDescription: channel.description,
+            importance: Importance.max,
+            priority: Priority.high,
+            ticker: 'ticker',
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+      );
+      
+      debugPrint('📱 [LocalNotification] Test notification sent successfully');
+    } catch (e) {
+      debugPrint('❌ [LocalNotification] Error showing test notification: $e');
     }
   }
 
@@ -735,6 +801,102 @@ class FirebaseNotificationService {
     } catch (e) {
       debugPrint('Error sending donation request notification: $e');
       rethrow;
+    }
+  }
+
+  // Add a notification to Firestore
+  Future<NotificationModel> addNotification(NotificationModel notification) async {
+    try {
+      // Add the notification to Firestore
+      final documentReference = FirebaseFirestore.instance
+          .collection('notifications')
+          .doc();
+      
+      // Create a copy with the generated ID
+      final notificationWithId = notification.copyWith(id: documentReference.id);
+      
+      // Save to Firestore
+      await documentReference.set(notificationWithId.toMap());
+      
+      // Get user's device tokens to send push notification
+      await _sendPushNotificationToUser(
+        userId: notification.userId,
+        title: notification.title,
+        body: notification.body,
+        data: {
+          'notificationId': documentReference.id,
+          'type': notification.type,
+          'metadata': notification.metadata,
+        },
+      );
+      
+      debugPrint('Notification added to Firestore and push notification sent');
+      return notificationWithId;
+    } catch (e) {
+      debugPrint('Error adding notification: $e');
+      rethrow;
+    }
+  }
+  
+  // Send a cloud message to a user's device(s)
+  Future<void> _sendPushNotificationToUser({
+    required String userId,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      // Get user's device tokens
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (!userDoc.exists) {
+        debugPrint('User document not found, cannot send push notification');
+        return;
+      }
+      
+      final userData = userDoc.data();
+      if (userData == null) {
+        debugPrint('User data is null, cannot send push notification');
+        return;
+      }
+      
+      final List<dynamic> deviceTokens = userData['deviceTokens'] ?? [];
+      
+      if (deviceTokens.isEmpty) {
+        debugPrint('No device tokens found for user, cannot send push notification');
+        return;
+      }
+      
+      // Log what would be sent
+      debugPrint('📲 Would send push notification to ${deviceTokens.length} devices:');
+      debugPrint('📲 Title: $title');
+      debugPrint('📲 Body: $body');
+      debugPrint('📲 Data: $data');
+      
+      // Instead of using Firebase Functions directly, add a message to a Firestore collection
+      // that will trigger a Cloud Function (if configured)
+      try {
+        await FirebaseFirestore.instance.collection('push_notifications').add({
+          'tokens': deviceTokens,
+          'notification': {
+            'title': title,
+            'body': body,
+          },
+          'data': data ?? {},
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        
+        debugPrint('Push notification request added to Firestore for Cloud Function processing');
+      } catch (e) {
+        debugPrint('Error adding push notification request to Firestore: $e');
+        debugPrint('You need to implement a server-side component to send push notifications');
+      }
+    } catch (e) {
+      debugPrint('Error sending push notification: $e');
     }
   }
 }

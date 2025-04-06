@@ -56,6 +56,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           _isLoading = false;
         });
         _animationController.forward();
+        
+        // Mark all notifications as read after a short delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            _markAllNotificationsAsRead();
+          }
+        });
       }
     } catch (e) {
       debugPrint('Error loading notifications: $e');
@@ -64,6 +71,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           _isLoading = false;
         });
       }
+    }
+  }
+  
+  // Mark all notifications as read
+  Future<void> _markAllNotificationsAsRead() async {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      await appProvider.markAllNotificationsAsRead();
+    } catch (e) {
+      debugPrint('Error marking notifications as read: $e');
     }
   }
 

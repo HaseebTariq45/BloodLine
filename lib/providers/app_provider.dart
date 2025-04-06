@@ -21,6 +21,8 @@ import '../firebase/firebase_emergency_contact_service.dart';
 import '../firebase/firebase_notification_service.dart';
 import '../utils/app_updater.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert'; // For JSON encoding
+import '../services/service_locator.dart'; // For service locator
 
 class AppProvider extends ChangeNotifier {
   // Firebase services - lazy initialization
@@ -1016,6 +1018,25 @@ class AppProvider extends ChangeNotifier {
 
     try {
       final notifications = await _notificationService.getUserNotifications();
+      
+      // Check for new unread notifications to show in notification drawer
+      if (_userNotifications.isNotEmpty && notifications.isNotEmpty) {
+        // Find notifications that are new (not in old list) and unread
+        final newNotifications = notifications.where((notification) => 
+          !notification.read && 
+          !_userNotifications.any((oldNotification) => oldNotification.id == notification.id)
+        ).toList();
+        
+        if (newNotifications.isNotEmpty) {
+          debugPrint('🔔 [Notifications] Found ${newNotifications.length} new unread notifications to display');
+          
+          // Show each new notification in the system drawer
+          for (final notification in newNotifications) {
+            await _showLocalNotificationFromModel(notification);
+          }
+        }
+      }
+      
       _userNotifications = notifications;
       _hasUnreadNotifications = notifications.any(
         (notification) => !notification.read,
@@ -1062,21 +1083,44 @@ class AppProvider extends ChangeNotifier {
     return _notificationService.getUserNotificationsStream();
   }
 
+  // Mark all notifications as read
   Future<void> markAllNotificationsAsRead() async {
     try {
-      await _notificationService.markAllNotificationsAsRead();
-
-      // Update local state
-      if (_userNotifications.isNotEmpty) {
-        _userNotifications =
-            _userNotifications
-                .map((notification) => notification.copyWith(read: true))
-                .toList();
-        _hasUnreadNotifications = false;
-        notifyListeners();
+      if (_currentUser == null) return;
+      
+      // Create list of notification ids to update
+      final List<String> unreadNotificationIds = _userNotifications
+          .where((notification) => !notification.read)
+          .map((notification) => notification.id)
+          .toList();
+      
+      if (unreadNotificationIds.isEmpty) return;
+      
+      debugPrint('Marking ${unreadNotificationIds.length} notifications as read');
+      
+      // Update notifications in Firestore
+      for (final id in unreadNotificationIds) {
+        await _firestore
+            .collection('notifications')
+            .doc(id)
+            .update({'read': true});
       }
+      
+      // Update local list
+      _userNotifications = _userNotifications.map((notification) {
+        if (unreadNotificationIds.contains(notification.id)) {
+          return notification.copyWith(read: true);
+        }
+        return notification;
+      }).toList();
+      
+      // Update unread status
+      _hasUnreadNotifications = false;
+      
+      notifyListeners();
+      debugPrint('Successfully marked notifications as read');
     } catch (e) {
-      debugPrint('Error marking all notifications as read: $e');
+      debugPrint('Error marking notifications as read: $e');
     }
   }
 
@@ -1427,10 +1471,47 @@ class AppProvider extends ChangeNotifier {
     try {
       final result = await _notificationService.addNotification(notification);
       debugPrint('Notification sent successfully: ${result.id}');
+      
+      // If the notification is for the current user, also show it in system drawer
+      if (notification.userId == _currentUser?.id) {
+        _showLocalNotificationFromModel(notification.copyWith(id: result.id));
+      }
+      
       return true;
     } catch (e) {
       debugPrint('Error sending notification: $e');
       return false;
+    }
+  }
+  
+  // Helper method to reliably show a local notification from a notification model
+  Future<void> _showLocalNotificationFromModel(NotificationModel notification) async {
+    try {
+      // First check if notification service is available through service locator
+      if (serviceLocator != null) {
+        final localNotificationService = serviceLocator.localNotificationService;
+        
+        // Create payload with notification ID and type
+        final payload = json.encode({
+          'notificationId': notification.id,
+          'type': notification.type,
+          'metadata': notification.metadata
+        });
+        
+        // Show the notification
+        await localNotificationService.showNotification(
+          title: notification.title,
+          body: notification.body,
+          payload: payload,
+        );
+        
+        debugPrint('✅ [LocalNotification] Successfully showed local notification: ${notification.title}');
+      } else {
+        debugPrint('⚠️ [LocalNotification] Could not show notification: Service locator not available');
+      }
+    } catch (e) {
+      debugPrint('❌ [LocalNotification] Error showing local notification: $e');
+      // Error is caught silently to avoid app crashes
     }
   }
 

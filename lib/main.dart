@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'constants/app_constants.dart';
 import 'providers/app_provider.dart';
 import 'services/network_tracker_service.dart';
@@ -38,6 +39,21 @@ import 'services/firebase_notification_service.dart';
 import 'widgets/blood_request_notification_dialog.dart';
 import 'utils/app_updater.dart';
 
+// This handler is called when app is in background or terminated
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Need to initialize Firebase if app was terminated
+  await Firebase.initializeApp();
+  
+  // Log that a message was received
+  debugPrint("Background message received: ${message.messageId}");
+  debugPrint("Title: ${message.notification?.title}");
+  debugPrint("Body: ${message.notification?.body}");
+  
+  // No need to show a local notification here - 
+  // FCM will automatically display the notification in the system tray
+}
+
 // Create a separate function for initialization
 Future<void> _initializeApp() async {
   // Ensure Flutter is initialized
@@ -47,6 +63,34 @@ Future<void> _initializeApp() async {
   try {
     await FirebaseService.initialize();
     debugPrint('Firebase initialized successfully');
+    
+    // Set up background message handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    
+    // Request permission for notifications with full options
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+      criticalAlert: true,
+      announcement: true,
+      carPlay: true,
+    );
+    
+    debugPrint('User notification permission status: ${settings.authorizationStatus}');
+    
+    // Enable notification delivery when app is in foreground
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    
+    // Enable Firebase Analytics for notifications when allowed
+    FirebaseMessaging.instance.setDeliveryMetricsExportToBigQuery(true);
+    
+    debugPrint('Firebase Messaging configured successfully');
   } catch (e) {
     debugPrint('Failed to initialize Firebase: $e');
     // Continue execution despite the error
@@ -83,11 +127,12 @@ void main() async {
   // Initialize services
   serviceLocator.initialize(appProvider);
 
-  // Initialize notification service - moved to widget's initState
-  // to ensure we have context available
-
+  // Run the app
   runApp(
-    ChangeNotifierProvider.value(value: appProvider, child: const MyApp()),
+    ChangeNotifierProvider<AppProvider>.value(
+      value: appProvider,
+      child: const MyApp(),
+    ),
   );
 }
 
@@ -190,6 +235,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('❌❌❌ ERROR SYNCING NOTIFICATIONS: $e ❌❌❌');
       // Handle errors silently to avoid app crashes
+    }
+  }
+
+  // Test notifications functionality
+  void _testNotification() async {
+    try {
+      debugPrint('🔔 [NotificationTest] Initiating notification test');
+      
+      // Call the test notification method
+      await _notificationService.testNotification();
+      
+      debugPrint('🔔 [NotificationTest] Test notification request sent');
+    } catch (e) {
+      debugPrint('🔔 [NotificationTest] Error testing notification: $e');
     }
   }
 

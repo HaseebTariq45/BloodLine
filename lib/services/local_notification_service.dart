@@ -4,6 +4,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:typed_data' show Int64List;
 
 class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
@@ -61,6 +63,9 @@ class LocalNotificationService {
       },
     );
     
+    // Explicitly create notification channels for Android
+    await _createNotificationChannels();
+    
     // Request notification permissions for iOS
     if (!kIsWeb) {
       await _flutterLocalNotificationsPlugin
@@ -84,6 +89,65 @@ class LocalNotificationService {
       debugPrint('📱 [LocalNotification] Set default timezone to UTC');
     } catch (e) {
       debugPrint('📱 [LocalNotification] Error setting timezone: $e');
+    }
+  }
+  
+  // Create notification channels for Android
+  Future<void> _createNotificationChannels() async {
+    // Skip on web platform
+    if (kIsWeb) return;
+    
+    final androidImplementation = _flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidImplementation != null) {
+      // Default channel
+      await androidImplementation.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'default_channel',
+          'Default Notifications',
+          description: 'Default notification channel for all notifications',
+          importance: Importance.high,
+        ),
+      );
+      
+      // Blood donation channel
+      await androidImplementation.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'blood_donation_channel',
+          'Blood Donation Notifications',
+          description: 'Notifications for blood donation app',
+          importance: Importance.high,
+          enableVibration: true,
+          enableLights: true,
+        ),
+      );
+      
+      // Urgent notifications channel
+      await androidImplementation.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'urgent_channel',
+          'Urgent Notifications',
+          description: 'Urgent blood request notifications',
+          importance: Importance.max,
+          enableVibration: true,
+          enableLights: true,
+        ),
+      );
+      
+      // Set vibration pattern in a separate non-const channel
+      final AndroidNotificationDetails urgentChannelDetails = AndroidNotificationDetails(
+        'urgent_channel',
+        'Urgent Notifications',
+        channelDescription: 'Urgent blood request notifications',
+        importance: Importance.max,
+        priority: Priority.high,
+        enableVibration: true,
+        enableLights: true,
+        vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
+      );
+      
+      debugPrint('📱 [LocalNotification] Notification channels created');
     }
   }
   
@@ -248,14 +312,33 @@ class LocalNotificationService {
           });
           break;
           
+        case 'test':
         case 'general':
+          // For general notifications, navigate to the notifications screen
+          Navigator.of(context).pushNamed('/notifications');
+          break;
+          
         default:
+          // Default action is to open notifications
           Navigator.of(context).pushNamed('/notifications');
           break;
       }
+      
+      // If there's a notification ID in the payload, mark it as read
+      final String? notificationId = data['notificationId'] as String?;
+      if (notificationId != null) {
+        final firestoreInstance = FirebaseFirestore.instance;
+        firestoreInstance
+            .collection('notifications')
+            .doc(notificationId)
+            .update({'read': true})
+            .then((_) => debugPrint('Marked notification $notificationId as read'))
+            .catchError((error) => debugPrint('Error marking notification as read: $error'));
+      }
     } catch (e) {
       debugPrint('📱 [LocalNotification] Error handling notification tap: $e');
-      // In case of error, navigate to notifications screen
+      
+      // If there's an error, default to opening the notifications screen
       Navigator.of(context).pushNamed('/notifications');
     }
   }

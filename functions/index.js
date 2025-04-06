@@ -2,258 +2,326 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-// Max batch size for FCM is 500
-const FCM_BATCH_SIZE = 500;
+/**
+ * Firebase Cloud Function to send push notifications to devices
+ * This function can be called from the app using Firebase Functions SDK
+ */
+exports.sendPushNotification = functions.https.onCall(async (data, context) => {
+  // Ensure the user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'The function must be called while authenticated.'
+    );
+  }
+
+  const { tokens, notification, data: messageData } = data;
+
+  if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'The function must be called with a valid array of device tokens.'
+    );
+  }
+
+  if (!notification || !notification.title || !notification.body) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'The function must be called with a valid notification object containing title and body.'
+    );
+  }
+
+  try {
+    // Create the message
+    const message = {
+      notification: {
+        title: notification.title,
+        body: notification.body,
+      },
+      data: messageData || {},
+      tokens: tokens, // Multiple tokens (up to 500)
+    };
+
+    // Send the message
+    const response = await admin.messaging().sendMulticast(message);
+    
+    console.log(`Successfully sent message: ${response.successCount} successful, ${response.failureCount} failed`);
+    
+    // Return the response
+    return {
+      success: true,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      results: response.responses.map(res => ({
+        success: res.success,
+        messageId: res.messageId,
+        error: res.error ? res.error.toJSON() : null,
+      })),
+    };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
 
 /**
- * Cloud Function that triggers when a new notification document is created in Firestore.
- * It sends push notifications to the specified device tokens using Firebase Cloud Messaging.
+ * Firebase Cloud Function to send a notification when a new notification document is created
+ * This is triggered automatically when a notification is added to Firestore
  */
 exports.sendNotificationOnCreate = functions.firestore
   .document('notifications/{notificationId}')
+  .onCreate(async (snap, context) => {
+    const notificationData = snap.data();
+    const userId = notificationData.userId;
+    
+    if (!userId) {
+      console.error('No userId found in notification data');
+      return null;
+    }
+    
+    try {
+      // Get the user document to find device tokens
+      const userDoc = await admin.firestore().collection('users').doc(userId).get();
+      
+      if (!userDoc.exists) {
+        console.error(`User document not found for userId: ${userId}`);
+        return null;
+      }
+      
+      const userData = userDoc.data();
+      const deviceTokens = userData.deviceTokens || [];
+      
+      if (deviceTokens.length === 0) {
+        console.log(`No device tokens found for user: ${userId}`);
+        return null;
+      }
+      
+      // Create the message
+      const message = {
+        notification: {
+          title: notificationData.title,
+          body: notificationData.body,
+        },
+        data: {
+          notificationId: context.params.notificationId,
+          type: notificationData.type || 'general',
+          // Add any metadata
+          ...(notificationData.metadata || {}),
+        },
+        tokens: deviceTokens,
+      };
+      
+      // Send the message
+      const response = await admin.messaging().sendMulticast(message);
+      
+      console.log(`Successfully sent notification: ${response.successCount} successful, ${response.failureCount} failed`);
+      
+      // Update tokens if there are any invalid ones
+      if (response.failureCount > 0) {
+        const invalidTokens = [];
+        
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success) {
+            const error = resp.error;
+            if (error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered') {
+              invalidTokens.push(deviceTokens[idx]);
+            }
+          }
+        });
+        
+        if (invalidTokens.length > 0) {
+          // Remove invalid tokens
+          const validTokens = deviceTokens.filter(token => !invalidTokens.includes(token));
+          
+          // Update the user document
+          await admin.firestore().collection('users').doc(userId).update({
+            deviceTokens: validTokens,
+          });
+          
+          console.log(`Removed ${invalidTokens.length} invalid tokens for user: ${userId}`);
+        }
+      }
+      
+      return {
+        success: true,
+        notificationId: context.params.notificationId,
+      };
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+/**
+ * Cloud Function that triggers when a new document is created in the push_notifications collection.
+ * It sends push notifications to the specified device tokens using Firebase Cloud Messaging.
+ */
+exports.sendPushNotificationOnCreate = functions.firestore
+  .document('push_notifications/{notificationId}')
   .onCreate(async (snapshot, context) => {
     try {
       const notificationId = context.params.notificationId;
       const notificationData = snapshot.data();
       
-      console.log(`Processing notification ${notificationId} of type ${notificationData.type}`);
+      console.log(`Processing push notification ${notificationId}`);
       
-      // Only process notifications of type 'blood_request_response' or 'blood_request_accepted'
-      if (notificationData.type !== 'blood_request_response' && notificationData.type !== 'blood_request_accepted') {
-        console.log(`Skipping notification - not a blood request response or acceptance (type: ${notificationData.type})`);
-        return null;
+      const deviceTokens = notificationData.tokens || [];
+      
+      if (deviceTokens.length === 0) {
+        console.log('No device tokens provided');
+        return await updatePushNotificationStatus(snapshot.ref, 'error', 'No device tokens provided');
       }
-      
-      const userId = notificationData.userId;
-      
-      // Get user document to check notification preferences
-      const userDoc = await admin.firestore().collection('users').doc(userId).get();
-      
-      if (!userDoc.exists) {
-        console.error(`User document for user ${userId} not found`);
-        return await updateNotificationStatus(snapshot.ref, 'error', 'User document not found');
-      }
-      
-      const userData = userDoc.data();
-      
-      // Check if user has enabled notifications
-      const notificationsEnabled = userData.notificationsEnabled !== false; // Default to true if not specified
-      if (!notificationsEnabled) {
-        console.log(`User ${userId} has disabled notifications`);
-        return await updateNotificationStatus(snapshot.ref, 'skipped', 'User has disabled notifications');
-      }
-      
-      // Get user device tokens
-      const deviceTokens = userData.deviceTokens || [];
       
       // Process result stats
       let totalSuccess = 0;
       let totalFailure = 0;
       let errorDetails = [];
       
-      // Try direct device notification first
-      if (deviceTokens.length > 0) {
-        console.log(`Found ${deviceTokens.length} device tokens for user ${userId}`);
-        
-        // Process in batches of FCM_BATCH_SIZE for better performance and reliability
-        for (let i = 0; i < deviceTokens.length; i += FCM_BATCH_SIZE) {
-          const batch = deviceTokens.slice(i, i + FCM_BATCH_SIZE);
-          
-          // Create rich notification payload
-          const message = {
-            notification: {
-              title: notificationData.title || 'Blood Donation Request Response',
-              body: notificationData.body || `${notificationData.responderName} has responded to your blood request`,
-              // Add notification channel for Android
-              android_channel_id: 'blood_donation_high_importance',
-            },
-            data: {
-              type: notificationData.type,
-              requestId: notificationData.requestId || '',
-              responderName: notificationData.responderName || '',
-              responderPhone: notificationData.responderPhone || '',
-              bloodType: notificationData.bloodType || '',
-              responderId: notificationData.responderId || '',
-              timestamp: Date.now().toString(),
-              notification_id: notificationId,
-              click_action: 'FLUTTER_NOTIFICATION_CLICK',
-            },
-            android: {
-              priority: 'high',
-              notification: {
-                icon: 'ic_stat_blooddrop',
-                color: '#E53935',
-                priority: 'max',
-                default_vibrate_timings: true,
-                default_sound: true,
-              }
-            },
-            apns: {
-              payload: {
-                aps: {
-                  sound: 'default',
-                  badge: 1,
-                  content_available: 1,
-                }
-              }
-            },
-            tokens: batch,
-          };
-          
-          try {
-            // Send message
-            const response = await admin.messaging().sendMulticast(message);
-            
-            // Add to totals
-            totalSuccess += response.successCount;
-            totalFailure += response.failureCount;
-            
-            // Log and collect any errors
-            if (response.failureCount > 0) {
-              response.responses.forEach((resp, idx) => {
-                if (!resp.success) {
-                  const token = batch[idx];
-                  const error = resp.error.toJSON();
-                  console.error(`Error sending to token ${token.substr(0, 10)}...: ${error.code}`, error);
-                  
-                  errorDetails.push({
-                    token: token.substr(0, 10) + '...',
-                    code: error.code,
-                    message: error.message
-                  });
-                  
-                  // If token is invalid, remove it from user's tokens
-                  if (error.code === 'messaging/invalid-registration-token' || 
-                      error.code === 'messaging/registration-token-not-registered') {
-                    removeInvalidToken(userId, token);
-                  }
-                }
-              });
-            }
-          } catch (error) {
-            console.error('Error sending batch:', error);
-            errorDetails.push({
-              batch: `Batch ${i/FCM_BATCH_SIZE + 1}`,
-              code: error.code || 'unknown',
-              message: error.message
-            });
+      // Create notification payload
+      const message = {
+        notification: notificationData.notification,
+        data: notificationData.data || {},
+        android: {
+          priority: 'high',
+          notification: {
+            icon: 'ic_stat_blooddrop',
+            color: '#E53935',
+            priority: 'max',
+            default_vibrate_timings: true,
+            default_sound: true,
           }
-        }
-      } else {
-        console.log(`No device tokens found for user ${userId}, trying topic notifications as fallback`);
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              content_available: 1,
+            }
+          }
+        },
+        tokens: deviceTokens,
+      };
+      
+      try {
+        // Send message
+        const response = await admin.messaging().sendMulticast(message);
         
-        // As a fallback, try sending to a user-specific topic
-        try {
-          // Create a user-specific topic using their ID
-          const userTopic = `user_${userId}`;
-          
-          const message = {
-            topic: userTopic,
-            notification: {
-              title: notificationData.title || 'Blood Donation Request Response',
-              body: notificationData.body || `${notificationData.responderName} has responded to your blood request`,
-            },
-            data: {
-              type: notificationData.type,
-              requestId: notificationData.requestId || '',
-              responderName: notificationData.responderName || '',
-              responderPhone: notificationData.responderPhone || '',
-              bloodType: notificationData.bloodType || '',
-              responderId: notificationData.responderId || '',
-              click_action: 'FLUTTER_NOTIFICATION_CLICK',
-            },
-            android: {
-              priority: 'high',
-              notification: {
-                sound: 'default',
-                priority: 'max',
-              }
-            },
-            apns: {
-              payload: {
-                aps: {
-                  sound: 'default',
-                  badge: 1
-                }
+        // Add to totals
+        totalSuccess += response.successCount;
+        totalFailure += response.failureCount;
+        
+        // Log and collect any errors
+        if (response.failureCount > 0) {
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success) {
+              const token = deviceTokens[idx];
+              const error = resp.error.toJSON();
+              console.error(`Error sending to token ${token.substr(0, 10)}...: ${error.code}`, error);
+              
+              errorDetails.push({
+                token: token.substr(0, 10) + '...',
+                code: error.code,
+                message: error.message
+              });
+              
+              // If token is invalid, try to find and remove it from any user document
+              if (error.code === 'messaging/invalid-registration-token' || 
+                  error.code === 'messaging/registration-token-not-registered') {
+                removeInvalidTokenFromAllUsers(token);
               }
             }
-          };
-          
-          const response = await admin.messaging().send(message);
-          console.log(`Sent topic message to ${userTopic}, messageId: ${response}`);
-          totalSuccess = 1; // Count as a success
-        } catch (error) {
-          console.error('Error sending topic notification:', error);
-          totalFailure = 1;
-          errorDetails.push({
-            method: 'topic',
-            code: error.code || 'unknown',
-            message: error.message
           });
         }
+      } catch (error) {
+        console.error('Error sending batch:', error);
+        errorDetails.push({
+          batch: `All tokens`,
+          code: error.code || 'unknown',
+          message: error.message
+        });
+        totalFailure += deviceTokens.length;
       }
       
-      // Update notification document with delivery status
+      // Update push notification document with delivery status
       const status = totalSuccess > 0 ? 'delivered' : 'failed';
-      await updateNotificationStatus(snapshot.ref, status, null, totalSuccess, totalFailure, errorDetails);
+      await updatePushNotificationStatus(snapshot.ref, status, null, totalSuccess, totalFailure, errorDetails);
       
       // Log final results
-      console.log(`Notification ${notificationId} processed with status ${status}: ${totalSuccess} successful, ${totalFailure} failed`);
+      console.log(`Push notification ${notificationId} processed with status ${status}: ${totalSuccess} successful, ${totalFailure} failed`);
       
       return { success: (totalSuccess > 0), successCount: totalSuccess, failureCount: totalFailure };
     } catch (error) {
-      console.error('Unhandled error processing notification:', error);
-      return await updateNotificationStatus(snapshot.ref, 'error', error.message);
+      console.error('Unhandled error processing push notification:', error);
+      return await updatePushNotificationStatus(snapshot.ref, 'error', error.message);
     }
   });
 
 /**
- * Helper function to update notification status in Firestore
+ * Helper function to update push notification status in Firestore
  */
-async function updateNotificationStatus(docRef, status, errorMessage = null, successCount = 0, failureCount = 0, errorDetails = []) {
+async function updatePushNotificationStatus(docRef, status, errorMessage = null, successCount = 0, failureCount = 0, errorDetails = []) {
   try {
     const updateData = {
-      deliveryStatus: {
-        status: status,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      }
+      status: status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     
     if (status === 'delivered' || status === 'failed') {
-      updateData.deliveryStatus.successCount = successCount;
-      updateData.deliveryStatus.failureCount = failureCount;
-      updateData.deliveryStatus.sentAt = admin.firestore.FieldValue.serverTimestamp();
+      updateData.successCount = successCount;
+      updateData.failureCount = failureCount;
+      updateData.sentAt = admin.firestore.FieldValue.serverTimestamp();
     }
     
     if (errorMessage) {
-      updateData.deliveryStatus.error = errorMessage;
+      updateData.error = errorMessage;
     }
     
     if (errorDetails && errorDetails.length > 0) {
-      updateData.deliveryStatus.errorDetails = errorDetails;
+      updateData.errorDetails = errorDetails;
     }
     
     await docRef.update(updateData);
     return { success: true };
   } catch (error) {
-    console.error('Error updating notification status:', error);
+    console.error('Error updating push notification status:', error);
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Helper function to remove invalid tokens from a user's document
+ * Helper function to remove invalid token from all users' documents
  */
-async function removeInvalidToken(userId, invalidToken) {
+async function removeInvalidTokenFromAllUsers(invalidToken) {
   try {
-    await admin.firestore().collection('users').doc(userId).update({
-      deviceTokens: admin.firestore.FieldValue.arrayRemove(invalidToken),
-      lastTokenUpdate: admin.firestore.FieldValue.serverTimestamp()
+    const usersSnapshot = await admin.firestore()
+      .collection('users')
+      .where('deviceTokens', 'array-contains', invalidToken)
+      .get();
+    
+    if (usersSnapshot.empty) {
+      console.log('Token not found in any user documents');
+      return false;
+    }
+    
+    const batch = admin.firestore().batch();
+    
+    usersSnapshot.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        deviceTokens: admin.firestore.FieldValue.arrayRemove(invalidToken),
+        lastTokenUpdate: admin.firestore.FieldValue.serverTimestamp()
+      });
     });
-    console.log(`Removed invalid token for user ${userId}`);
+    
+    await batch.commit();
+    console.log(`Removed invalid token from ${usersSnapshot.docs.length} users`);
     return true;
   } catch (error) {
-    console.error('Error removing invalid token:', error);
+    console.error('Error removing invalid token from users:', error);
     return false;
   }
-}
+} 
