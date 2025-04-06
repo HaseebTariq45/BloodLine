@@ -1402,7 +1402,17 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
   // Build action buttons layout with responsive design
   Widget _buildActionButtons(BloodRequestModel request, bool canRespond, bool isCurrentUserRequest) {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final currentUser = appProvider.currentUser;
     final currentUserId = appProvider.currentUser.id;
+    
+    // Check if blood types are compatible but user is ineligible
+    final userBloodType = appProvider.currentUser.bloodType;
+    final neededBloodType = request.bloodType;
+    final isCompatibleBloodType = _isBloodTypeCompatible(userBloodType, neededBloodType);
+    final isCompatibleButIneligible = !isCurrentUserRequest && 
+                                     (request.status == 'Pending' || request.status == 'New') && 
+                                     isCompatibleBloodType && 
+                                     !currentUser.isAvailableToDonate;
     
     // Case 1: User is viewing their own request that has received a response
     if (isCurrentUserRequest && request.status == 'In Progress' && request.responderId != null) {
@@ -1565,7 +1575,28 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
           }
         },
       );
-    } else if (isCurrentUserRequest) {
+    }
+    // Case 3: Blood type is compatible but user is ineligible to donate
+    else if (isCompatibleButIneligible) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: OutlinedButton.icon(
+          onPressed: () => _showEligibilityInfoDialog(),
+          icon: const Icon(Icons.info_outline, size: 14),
+          label: const Text('Ineligible', style: TextStyle(fontSize: 12)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.orange[700],
+            side: BorderSide(color: Colors.orange[700]!),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+            minimumSize: const Size(0, 28),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      );
+    }
+    else if (isCurrentUserRequest) {
       // Current user's own request
       return Align(
         alignment: Alignment.centerRight,
@@ -1707,5 +1738,58 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
         print('WARNING: Unknown blood type found: $normalizedDonorType');
         return false;
     }
+  }
+
+  // Show eligibility info dialog
+  void _showEligibilityInfoDialog() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final currentUser = appProvider.currentUser;
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cannot Respond'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are currently not eligible to donate blood.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            if (currentUser.lastDonationDate != null) ...[
+              Text(
+                'Your last donation was on ${currentUser.lastDonationDate.toString().substring(0, 10)}.',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You need to wait ${currentUser.daysUntilNextDonation} more days before you can donate again.',
+              ),
+            ] else ...[
+              Text(
+                'Please update your donation eligibility status from your profile.',
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CLOSE'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.pushNamed(context, '/profile');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppConstants.primaryColor,
+            ),
+            child: const Text('VIEW PROFILE'),
+          ),
+        ],
+      ),
+    );
   }
 }
