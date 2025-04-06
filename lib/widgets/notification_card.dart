@@ -458,6 +458,34 @@ class NotificationCard extends StatelessWidget {
               
           debugPrint('Blood request record created successfully in Firestore');
           
+          // Send notification to the requester that their request has been accepted
+          if (requesterId != null && requesterId.isNotEmpty) {
+            final appProvider = Provider.of<AppProvider>(context, listen: false);
+            
+            // Create notification model
+            final notification = NotificationModel(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              userId: requesterId, // Send to the requester
+              title: 'Blood Donation Request Accepted',
+              body: '${currentUser.name} has accepted your blood donation request',
+              type: 'blood_request_accepted',
+              read: false,
+              createdAt: DateTime.now().toIso8601String(),
+              metadata: {
+                'requestId': requestId,
+                'responderId': currentUser.id,
+                'responderName': currentUser.name,
+                'responderPhone': currentUser.phoneNumber,
+                'bloodType': currentUser.bloodType,
+                'location': requesterAddress ?? '',
+              },
+            );
+            
+            // Send the notification
+            await appProvider.sendNotification(notification);
+            debugPrint('Acceptance notification sent to requester: $requesterId');
+          }
+          
           // Close loading dialog
           Navigator.pop(context);
           
