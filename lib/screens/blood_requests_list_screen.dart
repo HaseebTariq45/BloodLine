@@ -76,6 +76,62 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
 
   // Show dialog to respond to a blood request
   void _showResponseDialog(BloodRequestModel request) {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final currentUser = appProvider.currentUser;
+    
+    // Check if user is eligible to donate
+    if (!currentUser.isAvailableToDonate) {
+      // Show ineligibility message
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Cannot Respond'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You are currently not eligible to donate blood.',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              if (currentUser.lastDonationDate != null) ...[
+                Text(
+                  'Your last donation was on ${currentUser.lastDonationDate.toString().substring(0, 10)}.',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You need to wait ${currentUser.daysUntilNextDonation} more days before you can donate again.',
+                ),
+              ] else ...[
+                Text(
+                  'Please update your donation eligibility status from your profile.',
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CLOSE'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.pushNamed(context, '/profile');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppConstants.primaryColor,
+              ),
+              child: const Text('VIEW PROFILE'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    
+    // Original dialog for eligible users
     showDialog(
       context: context,
       builder:
@@ -488,7 +544,8 @@ class _BloodRequestsListScreenState extends State<BloodRequestsListScreen>
     // Determine if user can respond
     bool canRespond = !isCurrentUserRequest && 
                       (request.status == 'Pending' || request.status == 'New') && 
-                      isCompatibleBloodType;
+                      isCompatibleBloodType &&
+                      appProvider.currentUser.isAvailableToDonate;
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
